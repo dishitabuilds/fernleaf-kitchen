@@ -1,0 +1,16 @@
+FROM node:24.10.0-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install --global pnpm@10.34.6
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
+COPY packages/contracts ./packages/contracts
+COPY apps/api ./apps/api
+RUN pnpm install --frozen-lockfile --filter @fernleaf/api... \
+    && DATABASE_URL=postgresql://unused:unused@localhost:5432/unused pnpm db:generate \
+    && pnpm --filter @fernleaf/contracts build \
+    && pnpm --filter @fernleaf/api build
+ENV NODE_ENV=production
+USER node
+EXPOSE 3001
+CMD ["pnpm", "--filter", "@fernleaf/api", "start:deploy"]

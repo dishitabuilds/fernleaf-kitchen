@@ -1,0 +1,61 @@
+name: Phase checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_USER: fernleaf
+          POSTGRES_PASSWORD: ci_only
+          POSTGRES_DB: fernleaf_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U fernleaf -d fernleaf_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://fernleaf:ci_only@localhost:5432/fernleaf
+      TEST_DATABASE_URL: postgresql://fernleaf:ci_only@localhost:5432/fernleaf_test
+      WEB_ORIGIN: http://localhost:3000
+      API_INTERNAL_URL: http://127.0.0.1:3001
+      SESSION_TTL_HOURS: '12'
+      PORT: '3001'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.10.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Apply isolated test database migrations
+        run: pnpm --filter @fernleaf/api migrate:deploy
+        env:
+          DATABASE_URL: postgresql://fernleaf:ci_only@localhost:5432/fernleaf_test
+      - run: pnpm test
+      - run: pnpm build
+      - name: Create browser demo database
+        run: |
+          PGPASSWORD=ci_only psql -h localhost -U fernleaf -d fernleaf_test -c 'CREATE DATABASE fernleaf;'
+          pnpm --filter @fernleaf/api migrate:deploy
+          pnpm db:seed
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

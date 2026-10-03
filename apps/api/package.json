@@ -1,0 +1,48 @@
+{
+  "name": "@fernleaf/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "prisma db seed",
+    "dev": "tsc -p tsconfig.build.json && concurrently -k -n compile,api \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch dist/main.js\"",
+    "dev:compile": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:deploy": "prisma migrate deploy && node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.integration.config.cjs --runInBand"
+  },
+  "dependencies": {
+    "@fernleaf/contracts": "workspace:*",
+    "@nestjs/common": "12.1.2",
+    "@nestjs/core": "12.1.2",
+    "@nestjs/platform-express": "12.1.2",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.2",
+    "cookie-parser": "1.4.7",
+    "dotenv": "17.2.3",
+    "pg": "8.16.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.9",
+    "@types/express": "5.0.3",
+    "@types/jest": "30.0.0",
+    "@types/node": "22.19.0",
+    "@types/pg": "8.15.5",
+    "@types/supertest": "6.0.3",
+    "jest": "30.5.2",
+    "prisma": "7.10.0",
+    "supertest": "7.1.4",
+    "ts-jest": "29.4.14",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

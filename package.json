@@ -1,0 +1,31 @@
+{
+  "name": "fernleaf-kitchen",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": { "node": ">=24.10.0 <25", "pnpm": "10.34.6" },
+  "scripts": {
+    "dev": "pnpm --filter @fernleaf/contracts build && pnpm --parallel --filter @fernleaf/api --filter @fernleaf/web dev",
+    "build": "pnpm --filter @fernleaf/contracts build && pnpm --filter @fernleaf/api build && pnpm --filter @fernleaf/web build",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm --filter @fernleaf/contracts build && pnpm --filter @fernleaf/api typecheck && pnpm --filter @fernleaf/web typecheck",
+    "test": "pnpm test:integration",
+    "test:integration": "pnpm --filter @fernleaf/contracts build && pnpm --filter @fernleaf/api test:integration",
+    "test:e2e": "playwright test",
+    "db:up": "docker compose up -d --wait",
+    "db:generate": "pnpm --filter @fernleaf/api generate",
+    "db:migrate": "pnpm --filter @fernleaf/api migrate:deploy",
+    "db:migrate:dev": "pnpm --filter @fernleaf/api migrate",
+    "db:seed": "pnpm --filter @fernleaf/api seed"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.10.0",
+    "concurrently": "9.2.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.1"
+  }
+}

@@ -1,0 +1,13 @@
+.git
+**/node_modules
+.tooling
+.local
+**/.env
+**/.env.local
+**/.env.production
+**/.next
+**/dist
+**/src/generated
+**/*.log
+test-results
+playwright-report
