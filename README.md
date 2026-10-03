@@ -15,10 +15,10 @@ The user authorised normal phase commits/pushes and creation of this project's G
 | Delivery record | Status |
 | --- | --- |
 | GitHub URL / visibility | [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), verified public |
-| Branch / commit / verified push | `main`; phase commit/push not yet performed |
+| Branch / phase commit / verified push | `main`; [`d8aa0b6`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/d8aa0b66f448ae83c71d3084a4164d505fbb21b1) pushed and verified against `refs/heads/main` on 3 October 2026 |
 | Web / API live URLs | Not deployed; hosting access pending |
 | Local checks | PostgreSQL, lint, type-check, 20 backend tests, 10 browser tests, production builds, `pnpm dev` and local Docker smoke pass |
-| GitHub Actions | Workflow prepared; not yet triggered before first commit/push |
+| GitHub Actions | [Phase checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37113060316) **PASS** for `d8aa0b6`: clean Linux install, lint, type-check, PostgreSQL tests, builds and browser checks |
 
 ## Scope and four roles
 
@@ -295,6 +295,7 @@ Results recorded on 3 October 2026 for this Phase 0 checkout. No future business
 | `pnpm test:integration` | PASS; 20 tests, one suite, 7.192 seconds, real PostgreSQL |
 | `pnpm test:e2e` | PASS; all 10 real Chromium browser tests in 18 seconds after fixing an ambiguous alert locator |
 | `pnpm build` | PASS; contracts, compiled NestJS API and Next.js production output |
+| GitHub Actions clean checkout | PASS for phase commit `d8aa0b6`; frozen-lockfile install, generation, lint, type-check, migrations, tests, builds and browser suite on Ubuntu/Node 24.10.0 |
 | Direct unauthorised API request | PASS in integration suite: 401 without session; 403 for authenticated non-Admin settings access |
 | `docker build --file Dockerfile.api --tag fernleaf-api:phase0 .` | PASS; pinned API image builds, generates Prisma and compiles contracts/API |
 | Local production-mode API container | PASS; non-root `node` user, committed-migration startup, real PostgreSQL health on localhost:3002 and anonymous settings 401. Synthetic local database, not a production deployment/database. |
@@ -337,6 +338,6 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Local Phase 0 verification is finished. Review intended changes/secrets, commit to verified public `dishitabuilds/fernleaf-kitchen` on `main`, push and verify the remote hash/CI. Hosting access remains the deployed-gate blocker. Preserve local work/commit if push or deployment is blocked; report exact status.
+Local Phase 0 verification is finished. The phase commit is pushed to verified public `dishitabuilds/fernleaf-kitchen` on `main`, its full hash matched the remote branch, and GitHub CI passed. Hosting access remains the deployed-gate blocker; configure the prepared services and run the hosted acceptance checks when access is available. The subsequent documentation commit records this verified phase result; use `git log` for the latest documentation hash.
 
 Stop after the Phase 0 report until another phase is authorised. **Phase 1 is next:** money/calendar helpers and tests, catalogue/options/reference data including portion sizes, menus/tiers, companies/employees and persisted editable settings. Keep the Phase 0 deployed gate visible until live smoke tests pass. Fresh conversations should read rules/README, inspect Git state and consult relevant blueprint sections before editing.
