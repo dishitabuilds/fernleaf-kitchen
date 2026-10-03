@@ -57,14 +57,13 @@ node --version
 pnpm --version
 ```
 
-The implementation workstation uses an ignored temporary pnpm tool cache; pnpm is not installed globally there. In this existing workspace, add the cache directory to the current PowerShell session's PATH before running scripts so nested workspace commands also find pnpm:
+The implementation workstation uses an ignored temporary pnpm tool cache; pnpm is not installed globally there. After the first-time setup below, the Windows launcher finds either installed pnpm or that cache, starts PostgreSQL and runs both development servers:
 
 ```powershell
-$env:PATH = (Join-Path (Get-Location) '.tooling/node_modules/.bin') + ';' + $env:PATH
-pnpm dev
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-Reviewers on a fresh checkout should use the normal installation above.
+Keep this terminal open while using the app; Ctrl+C stops development. The launcher resolves the project from its own location, so an absolute script path also works from another directory. It checks environment files/dependencies, adds pnpm's directory to PATH for nested commands, and restores the caller's location/PATH afterward. It does not migrate, seed or reset data. Reviewers on a fresh checkout should install pnpm normally and complete the first-time setup below. For direct workspace commands on this workstation, first run `$env:PATH = (Join-Path (Get-Location) '.tooling/node_modules/.bin') + ';' + $env:PATH` from the repository root.
 
 From the repository root in PowerShell:
 
@@ -90,6 +89,12 @@ Edit the copied environments first. Real `.env` files are Git-ignored. The examp
 | `http://localhost:3000/api/v1/health` | Same API through the Next.js HTTP rewrite |
 
 Health success is `{ "status": "ok", "database": "connected", "service": "fernleaf-api" }` after a real database query.
+
+### Startup troubleshooting
+
+Chrome's `ERR_CONNECTION_REFUSED` at `localhost:3000` means the web server is not accepting connections; the app does not start just by opening its URL. Start the launcher above, wait for Next.js to report ready and NestJS to finish starting, then reload Chrome. Closing the development terminal or finishing an automated browser test stops its servers. If startup fails, keep the console output: missing environments/dependencies and Docker failures are reported with setup steps. A reachable login page with a failing API health check requires checking NestJS and PostgreSQL as well.
+
+The GitHub email for commit `e4f8ded` describes a historical CI failure: a pricing race test expected only HTTP 400 when a safely exhausted transaction retry could return 409. Commit `47279c3` added bounded retry backoff and verifies the persisted graph and subsequent cycle rejection. Its [full CI run passed](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117393858); that notification is separate from whether local development servers are running.
 
 For the disposable database from the example, first apply migrations to its separate test database. The process override below is removed after migration, so subsequent commands load the normal API environment:
 
@@ -180,6 +185,7 @@ Undeclared route access policies fail closed. Future business capability names a
 | `packages/contracts` | Public roles, permission identifiers, request/response contracts |
 | `tests/integration` | Auth/access, pure money/calendar rules, PostgreSQL configuration/menu/pricing/concurrency checks |
 | `tests/e2e` | Browser login/role/logout and configuration workflows through the HTTP rewrite |
+| `scripts/dev.ps1` | Windows development launcher: validates setup, starts Compose PostgreSQL and runs API/web in the foreground |
 | `docs` | [Actual architecture](docs/architecture.md), [planned lifecycle diagrams](docs/diagrams.md), [Phase 1 rules/evidence](docs/phase-1.md) and [deployment runbook](docs/deployment.md) |
 | `Dockerfile.api`, `railway.json` | Repository-root API deployment foundation |
 
@@ -357,6 +363,7 @@ Final Phase 1 local evidence:
 | Phase 1 local production-mode container | PASS; non-root user, committed migrations, PostgreSQL health, four logins, production cookie attributes, anonymous 401/non-Admin 403, persisted settings/menu and logout. Explicit local HTTP cookie client; hosted HTTPS browser behaviour remains unverified. Temporary API container stopped; PostgreSQL retained. |
 | Phase 1 GitHub CI/commit/push | Phase commit `a44792c` and evidence commit `cee9856` passed CI. Docs-only `e4f8ded` rerun exposed a race-test assumption (safe 409 versus expected 400), fixed by backoff and stronger graph/post-race checks in `47279c3`. Final fix pushed; full hash matched remote `main`; [final CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117393858) **PASS**, 65 backend/rule and 14 browser tests (13.8 seconds for CI browser cases). |
 | Hosted smoke checks | Blocked by pending hosting access; not run |
+| Windows startup repair / Chrome check | PASS on 3 October 2026: `scripts/dev.ps1` starts healthy Compose PostgreSQL and the API/web servers using cached pnpm; direct and proxied health report a connected database and `/login` returns 200. In the user's Chrome, Admin sign-in, session persistence after refresh, saved Settings and the dashboard connection indicator pass. Launcher parsing, actionable missing-environment failure and location/PATH restoration pass; repository lint and diff checks pass. Development servers are deliberately left running for local review. The historical `e4f8ded` notification is fixed; [current main CI at `162cc75`](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117633051) passed all checks. |
 
 [Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
 
