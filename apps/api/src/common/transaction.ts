@@ -1,4 +1,5 @@
 import { Prisma } from '../generated/prisma/client';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { PrismaService } from '../database/prisma.service';
 import { ApiError } from './api-error';
 
@@ -20,6 +21,9 @@ export async function serializable<T>(prisma: PrismaService, operation: (transac
     } catch (error) {
       if (!retryableTransactionConflict(error)) throw error;
       if (attempt === 2) throw new ApiError(409, 'CONCURRENT_CHANGE', 'Another change happened at the same time. Refresh and try again.');
+      // Give the winning transaction time to commit before opening a fresh snapshot.
+      // Waiting occurs after rollback, so no application transaction holds locks.
+      await delay(20 * 2 ** attempt);
     }
   }
   throw new Error('Transaction retry exhausted.');

@@ -6,7 +6,7 @@ The mandated stack is **Next.js + NestJS + Prisma**. This repository uses TypeSc
 
 ## Current progress and sources
 
-**Phase 1 configuration is implemented and locally verified.** It adds exact money/calendar rules, catalogue/options/groups, reference administration, menus and employee previews, tiers and a bulk price matrix, companies/addresses/domains, employees/transfers, and persisted editable kitchen settings. Lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API container smoke pass. See [Phase 1 evidence and rules](docs/phase-1.md). GitHub synchronization is recorded separately below.
+**Phase 1 configuration and the final concurrency fix are implemented and locally verified.** It adds exact money/calendar rules, catalogue/options/groups, reference administration, menus and employee previews, tiers and a bulk price matrix, companies/addresses/domains, employees/transfers, and persisted editable kitchen settings. After adding retry backoff, lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the rebuilt API container smoke all pass. See [Phase 1 evidence and rules](docs/phase-1.md). Final GitHub synchronization/CI is recorded separately below.
 
 Phase 0's authentication/HTTP/database foundation was verified locally, including four role accounts, 20 backend tests, 10 browser tests and the API Docker smoke. Its hosted gate remains **blocked by pending Vercel/Railway access**. Role landing pages still do not implement operational dashboards. Orders, fulfilment and billing remain later phases.
 
@@ -20,7 +20,7 @@ The user authorised normal phase commits/pushes and creation of this project's G
 | Branch / phase commit / verified push | `main`; Phase 1 commit [`a44792c`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/a44792cf849bce22cfd42c4095c2c3ac141ab891) pushed on 3 October 2026; its full hash matched remote `main` after push. A following documentation commit records this evidence. |
 | Web / API live URLs | Not deployed; hosting access pending |
 | Local checks | Phase 1 gate PASS: missing/hidden menu items, exact derivation and company/owner/domain rules verified; complete evidence below |
-| GitHub Actions | [Phase 1 checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865) **PASS** for `a44792c`: frozen-lockfile clean Linux install, lint, types, PostgreSQL migrations/tests, production builds, seed and browser tests |
+| GitHub Actions | Phase checks PASS for `a44792c` and `cee9856`; [rerun](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116520005) exposed a bounded 409 conflict where the race test expected 400. Retry backoff and stronger post-race assertions now pass locally; final fix push/CI pending. |
 
 ## Scope and four roles
 
@@ -349,13 +349,13 @@ Final Phase 1 local evidence:
 | Phase 1 migration | Applied to main and guarded test PostgreSQL databases; Prisma client generated |
 | `pnpm lint` / `pnpm typecheck` Phase 1 | PASS; complete repository lint and contracts/API/web type checks |
 | `pnpm --filter @fernleaf/api test:integration --runTestsByPath ../../tests/integration/configuration.spec.ts` | PASS; 16 tests, 12.073 seconds; direct role denial, atomic setup, domain claim race, same-company FK constraints, transfer rollback, flags/references and company/settings version races |
-| `pnpm test:integration` Phase 1 | PASS; **65 tests / 4 suites in 51.239 seconds**, using isolated PostgreSQL: 20 auth, 15 catalogue/menu/pricing, 17 configuration and 13 pure money/calendar cases |
-| Concurrent tier-reference regression | PASS; 20 independent race pairs in focused checks plus 10 pairs in the full suite. Each pair accepts one edit and rejects the cycle; no cycle persists. The initial HTTP 500 was fixed by handling PrismaPg's structured SQLSTATE `40001`/`40P01` commit conflicts alongside Prisma `P2034`. |
+| `pnpm test:integration` Phase 1 | PASS after final retry fix; **65 tests / 4 suites in 61.719 seconds**, using isolated PostgreSQL: 20 auth, 15 catalogue/menu/pricing, 17 configuration and 13 pure money/calendar cases |
+| Concurrent tier-reference regression | PASS after 20/40 ms rollback backoff: **100 observed focused race pairs**, then 10 pairs in the full suite. Every pair verifies one committed edge and a subsequent `400 PRICE_TIER_CYCLE` for the losing edit. Bounded contention may return only `409 CONCURRENT_CHANGE`; generic 409/500 and persisted cycles fail. The initial HTTP 500 was fixed by handling PrismaPg's structured SQLSTATE `40001`/`40P01` commit conflicts alongside Prisma `P2034`. |
 | `pnpm build` Phase 1 | PASS; contracts, compiled NestJS and all Next.js production routes |
-| `pnpm test:e2e` Phase 1 | PASS; **14 Chromium tests in 19.6 seconds**, exit 0: 10 authentication/access regression cases and four complete Admin configuration workflows. Final four-flow rerun after group-ID preservation also PASS in 15.1 seconds with browser timezone America/Los_Angeles. |
+| `pnpm test:e2e` Phase 1 | PASS against the final retry build; **14 Chromium tests in 27.1 seconds**, exit 0: 10 authentication/access/phone regression cases and four complete Admin configuration workflows with browser timezone America/Los_Angeles. All owned test servers stopped. |
 | `docker build --file Dockerfile.api --tag fernleaf-api:phase1 .` | PASS; current API deployment image generates Prisma and compiles contracts/API |
 | Phase 1 local production-mode container | PASS; non-root user, committed migrations, PostgreSQL health, four logins, production cookie attributes, anonymous 401/non-Admin 403, persisted settings/menu and logout. Explicit local HTTP cookie client; hosted HTTPS browser behaviour remains unverified. Temporary API container stopped; PostgreSQL retained. |
-| Phase 1 GitHub CI/commit/push | Phase commit `a44792c` pushed to `main`; full hash matched the remote after push. Clean-checkout [CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865) **PASS** on Ubuntu/Node 24.10.0. |
+| Phase 1 GitHub CI/commit/push | Phase commit `a44792c` pushed and [CI passed](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865); evidence commit `cee9856` also passed. Docs-only `e4f8ded` rerun found a race-test timing failure (64/65 passed): safe 409 versus expected 400. Retry/backoff fix now passes all local checks; final fix push/CI pending. |
 | Hosted smoke checks | Blocked by pending hosting access; not run |
 
 [Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
@@ -400,7 +400,7 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` is pushed to verified public `dishitabuilds/fernleaf-kitchen` on `main`; its full hash matched the remote after push and clean-checkout CI passed. Local checks pass: lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API image/container smoke. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned. The following documentation commit records the verified phase result; use `git log` for the latest documentation hash.
+Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` was pushed and clean-checkout CI passed. A later CI rerun exposed a race-test assumption about immediate 400 versus bounded 409; the final retry backoff and graph/post-race assertions now pass 100 focused race pairs and the complete local checks (65 backend/rule tests, 14 browser tests, lint/types/build and rebuilt API container smoke). Push and verify this final fix on `main` before reporting completion. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned.
 
 Hosting access remains the precise deployed-gate blocker; configure the prepared services and run deployed sign-in, unauthorized-access and production-database checks when access is available. The original assignment PDF/submission instructions remain missing. There is no live URL or deployment claim.
 

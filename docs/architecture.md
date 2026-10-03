@@ -106,7 +106,7 @@ flowchart TB
     Unique -->|Yes| Commit[Commit transfer]
 ```
 
-Company/settings saves include the last-read version. Conditional updates increment it and reject stale saves with 409. Configuration writes use serializable isolation, retrying serialization conflicts for at most three attempts; a persistent conflict returns an explicit reload/retry response. PostgreSQL uniqueness/FKs provide a second guard. Menu previews and price matrix reads use Repeatable Read for coherent configuration reads. Future order/invoice/fulfilment concurrency still needs its own checks.
+Company/settings saves include the last-read version. Conditional updates increment it and reject stale saves with 409. Configuration writes use serializable isolation for at most three attempts. Serialization/deadlock conflicts roll back before asynchronous 20/40 ms backoff; a persistent conflict returns `409 CONCURRENT_CHANGE`. This gives a winning transaction time to commit without holding locks during the delay. PostgreSQL uniqueness/FKs provide a second guard. Menu previews and price matrix reads use Repeatable Read for coherent configuration reads. Future order/invoice/fulfilment concurrency still needs its own checks.
 
 ## Effective pricing and menu availability
 

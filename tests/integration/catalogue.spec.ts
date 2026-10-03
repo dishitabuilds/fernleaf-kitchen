@@ -155,9 +155,20 @@ describe('Phase 1 catalogue, pricing and employee menu on real PostgreSQL', () =
         patch(`/price-tiers/${a.body.id}`, { rule: 'REFERENCE', referenceTierId: b.body.id }),
         patch(`/price-tiers/${b.body.id}`, { rule: 'REFERENCE', referenceTierId: a.body.id }),
       ]);
-      expect(responses.map((response) => response.status).sort()).toEqual([200, 400]);
+      const winner = responses.findIndex((response) => response.status === 200);
+      expect(winner).toBeGreaterThanOrEqual(0);
+      const loser = responses[1 - winner];
+      if (loser.status === 409) expect(loser.body.code).toBe('CONCURRENT_CHANGE');
+      else {
+        expect(loser.status).toBe(400);
+        expect(loser.body.code).toBe('PRICE_TIER_CYCLE');
+      }
       const tiers = await prisma.priceTier.findMany({ where: { id: { in: [a.body.id, b.body.id] } } });
       expect(tiers.filter((tier) => tier.rule === 'REFERENCE')).toHaveLength(1);
+      const rejectedId = winner === 0 ? b.body.id : a.body.id;
+      const committedId = winner === 0 ? a.body.id : b.body.id;
+      const retried = await patch(`/price-tiers/${rejectedId}`, { rule: 'REFERENCE', referenceTierId: committedId }).expect(400);
+      expect(retried.body.code).toBe('PRICE_TIER_CYCLE');
     }
   });
 
