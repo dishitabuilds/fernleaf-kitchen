@@ -57,7 +57,14 @@ node --version
 pnpm --version
 ```
 
-The implementation workstation used an ignored temporary pnpm tool cache; pnpm is not installed globally there. In this existing workspace, `./.tooling/node_modules/.bin/pnpm.cmd dev` runs the development command directly. Reviewers on a fresh checkout should use the normal installation above.
+The implementation workstation uses an ignored temporary pnpm tool cache; pnpm is not installed globally there. In this existing workspace, add the cache directory to the current PowerShell session's PATH before running scripts so nested workspace commands also find pnpm:
+
+```powershell
+$env:PATH = (Join-Path (Get-Location) '.tooling/node_modules/.bin') + ';' + $env:PATH
+pnpm dev
+```
+
+Reviewers on a fresh checkout should use the normal installation above.
 
 From the repository root in PowerShell:
 
