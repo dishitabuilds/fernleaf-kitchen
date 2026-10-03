@@ -2,7 +2,7 @@
 
 **Prepared, not deployed.** Hosting access is pending. No provider project, paid resource, production database, live URL or successful hosted login is claimed. Update this file and README after actual checks. Inspect the final committed Dockerfile/configuration before copying provider settings.
 
-The API image was built locally with `docker build --file Dockerfile.api --tag fernleaf-api:phase0 .`. A production-mode container running as the non-root `node` user applied committed migrations and passed a real PostgreSQL health query at localhost:3002; anonymous settings access returned 401. Its database is synthetic local data. This confirms image/startup behaviour and **does not satisfy hosted login or production database acceptance**.
+The current API image was built locally with `docker build --file Dockerfile.api --tag fernleaf-api:phase1 .`. On 3 October 2026 a production-mode container running as the non-root `node` user applied committed migrations and passed real PostgreSQL health at localhost:3002, all four logins, production cookie attributes, anonymous settings 401, non-Admin settings 403, persisted settings/menu reads and logout. The smoke client supplied cookies explicitly over local HTTP; this does not prove HTTPS browser forwarding through hosted Next.js. Its database is synthetic local data. The temporary API container was stopped after verification; PostgreSQL was retained. These checks **do not satisfy hosted login or production database acceptance**.
 
 ## Target and monorepo boundary
 
@@ -10,7 +10,7 @@ The API image was built locally with `docker build --file Dockerfile.api --tag f
 | --- | --- | --- |
 | Web | Vercel, Root Directory `apps/web` | Next.js and same-origin `/api/v1` rewrite |
 | API | Railway, repository-root Docker context | NestJS, Prisma and later scheduled jobs |
-| Database | Railway PostgreSQL, API project/region | Persistent staff/sessions and later domain records |
+| Database | Railway PostgreSQL, API project/region | Staff/sessions, catalogue, pricing, company/employee and kitchen configuration; orders in later phases |
 
 Verify account access, quota, current plans and budget before provisioning. This runbook authorises no purchase or hiring-form submission. Keep secrets in provider variables. Future in-process cutoff/review-fixture jobs require an always-running API.
 
@@ -22,7 +22,7 @@ Vercel supports pnpm workspaces and selecting project Root Directory; retain wor
 2. Use root `railway.json` with root `Dockerfile.api`. It pins Node 24.10.0/pnpm 10.34.6, installs from lockfile, generates Prisma and builds contracts/API. Migrations belong at startup/deployment, not image build time.
 3. Set `DATABASE_URL` through a reference to PostgreSQL's connection string. Set `NODE_ENV=production`, `WEB_ORIGIN` to the exact stable web HTTPS origin and `SESSION_TTL_HOURS=12`. Do not set `TEST_DATABASE_URL` for production. Railway injects `PORT`; API binds to it on `0.0.0.0`.
 4. `Dockerfile.api` starts `pnpm --filter @fernleaf/api start:deploy`, whose script runs `prisma migrate deploy && node dist/main.js`. It applies committed migrations before starting the compiled API; migration failure prevents startup. Never use `migrate`/`prisma migrate dev` in production. If moving migrations into a provider pre-deploy command later, use `pnpm --filter @fernleaf/api migrate:deploy` and retain a fail-closed startup sequence.
-5. After initial migration, run `pnpm --filter @fernleaf/api seed` explicitly once. Seed inserts missing demo staff and preserves changed existing accounts; it is not a reset and is not run on every ordinary startup.
+5. After initial migration, run `pnpm --filter @fernleaf/api seed` explicitly once. Seed inserts missing demo staff without resetting existing accounts and atomically installs synthetic Phase 1 configuration only when kitchen settings are absent. Later runs preserve edited records and removed prices. It is not a reset and is not run on every ordinary startup.
 6. Generate an API HTTPS domain and verify `/api/v1/health` from outside. Health must query PostgreSQL; port listening alone does not meet the database gate.
 7. Configure healthcheck `/api/v1/health`, timeout and restart policy from `railway.json`. Inspect deployment/migration logs, disable API sleeping and verify database storage/backup/quota for the review window.
 
@@ -63,7 +63,7 @@ For API failure inspect logs, `PORT`, database/reference variables, migration st
 
 ## Rolling review fixtures and retention
 
-Phase 0 seeds staff only. Phase 4/5 will create synthetic history/current/future scenarios using unique scenario/date keys. Startup catch-up and local-midnight Asia/Kolkata jobs append missing fixtures, including own-today Driver work, without resetting reviewer changes. A seven-day demo company prevents weekend gaps. Keep real time and label synthetic prior timestamps. Sleeping-host fallback needs an independently scheduled authenticated trigger plus catch-up/cold-start tests.
+Phase 1 seeds four staff accounts plus initial synthetic catalogue, pricing, references, company, employees and settings. It does not seed orders or deliveries. Phase 4/5 will create synthetic history/current/future scenarios using unique scenario/date keys. Startup catch-up and local-midnight Asia/Kolkata jobs will append missing fixtures, including own-today Driver work, without resetting reviewer changes. The seeded company has a seven-day calendar. Keep real time and label synthetic prior timestamps. Sleeping-host fallback needs an independently scheduled authenticated trigger plus catch-up/cold-start tests.
 
 After actual submission:
 

@@ -6,7 +6,9 @@ The mandated stack is **Next.js + NestJS + Prisma**. This repository uses TypeSc
 
 ## Current progress and sources
 
-**Phase 0's local foundation is implemented and verified:** workspace, PostgreSQL migrations, health, frontend HTTP connection, authentication, permissions, four demo accounts and role/settings shells. Lint, type-check, 20 backend tests, 10 browser tests, production builds, the development command and a production-mode API Docker container pass. Deployment files are prepared; the required hosted gate is **blocked by pending Vercel/Railway access**. Later phases have not started. Settings access does not satisfy editable calendars/cutoffs, and role shells do not satisfy operational dashboards.
+**Phase 1 configuration is implemented and locally verified.** It adds exact money/calendar rules, catalogue/options/groups, reference administration, menus and employee previews, tiers and a bulk price matrix, companies/addresses/domains, employees/transfers, and persisted editable kitchen settings. Lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API container smoke pass. See [Phase 1 evidence and rules](docs/phase-1.md). GitHub synchronization is recorded separately below.
+
+Phase 0's authentication/HTTP/database foundation was verified locally, including four role accounts, 20 backend tests, 10 browser tests and the API Docker smoke. Its hosted gate remains **blocked by pending Vercel/Railway access**. Role landing pages still do not implement operational dashboards. Orders, fulfilment and billing remain later phases.
 
 The complete [Heizen-Implementation-Blueprint.md](Heizen-Implementation-Blueprint.md) was read before implementation. The original assignment PDF and submission email/screenshots are absent from this workspace and have **not** been checked. Requirement numbering, the 4 October 2026 11:59 PM IST deadline, public-repository requirement and submission method below come from the blueprint; comparison with the original sources remains pending. No attachment from another conversation is assumed accessible. [AGENTS.md](AGENTS.md) and [rules.md](rules.md) govern future work.
 
@@ -15,18 +17,18 @@ The user authorised normal phase commits/pushes and creation of this project's G
 | Delivery record | Status |
 | --- | --- |
 | GitHub URL / visibility | [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), verified public |
-| Branch / phase commit / verified push | `main`; [`d8aa0b6`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/d8aa0b66f448ae83c71d3084a4164d505fbb21b1) pushed and verified against `refs/heads/main` on 3 October 2026 |
+| Branch / phase commit / verified push | `main`; Phase 0 commit [`d8aa0b6`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/d8aa0b66f448ae83c71d3084a4164d505fbb21b1) was pushed and verified on 3 October 2026. Phase 1 commit/push pending final checks. |
 | Web / API live URLs | Not deployed; hosting access pending |
-| Local checks | PostgreSQL, lint, type-check, 20 backend tests, 10 browser tests, production builds, `pnpm dev` and local Docker smoke pass |
+| Local checks | Phase 1 gate PASS: missing/hidden menu items, exact derivation and company/owner/domain rules verified; complete evidence below |
 | GitHub Actions | [Phase checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37113060316) **PASS** for `d8aa0b6`: clean Linux install, lint, type-check, PostgreSQL tests, builds and browser checks |
 
 ## Scope and four roles
 
-All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. Only Phase 0 is authorised so far.
+All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. The current request authorises Phase 1, with a report and stop before Phase 2.
 
-| Role | Responsibility | Phase 0 surface |
+| Role | Responsibility | Current surface |
 | --- | --- | --- |
-| Admin | Configure catalogue/pricing, companies/employees, staff/settings; manage orders, overrides and billing | Authenticated landing shell and read-only settings; protected mutation probe is tested through HTTP |
+| Admin | Configure catalogue/pricing, companies/employees, staff/settings; manage orders, overrides and billing | Configuration CRUD forms, employee menu/secret-category preview, bulk pricing and editable settings; orders/staff/billing later |
 | Kitchen | Prepare active confirmed orders and monitor readiness/risk | Authenticated Kitchen shell |
 | Dispatch | Assign drivers, check grouped-drop readiness and record departure | Authenticated Dispatch shell |
 | Driver | Read/complete own assigned drops for kitchen-local today | Authenticated Driver shell; deliveries are planned |
@@ -70,7 +72,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Edit the copied environments first. Real `.env` files are Git-ignored. The example database credentials are disposable local-development values; provider secrets belong in provider variables. `db:migrate` runs `prisma migrate deploy` and applies committed migrations without schema generation or reset. For an intentional new schema change, use `pnpm --filter @fernleaf/api migrate --name change-name` (`db:migrate:dev` is the interactive alias); inspect the target and any drift/reset prompt first. Production uses only `migrate:deploy`. The seed inserts missing demo staff without resetting reviewer edits to existing accounts.
+Edit the copied environments first. Real `.env` files are Git-ignored. The example database credentials are disposable local-development values; provider secrets belong in provider variables. `db:migrate` runs `prisma migrate deploy` and applies committed migrations without schema generation or reset. For an intentional new schema change, use `pnpm --filter @fernleaf/api migrate --name change-name` (`db:migrate:dev` is the interactive alias); inspect the target and any drift/reset prompt first. Production uses only `migrate:deploy`. Run the seed after migrating: it initializes kitchen settings and synthetic configuration as well as the four accounts. Protected settings returns `503 SETTINGS_NOT_INITIALIZED` when its singleton has not been seeded. Existing staff edits are preserved; configuration seed preservation is described in the reviewer guide.
 
 `docker compose stop` stops local PostgreSQL while preserving its named volume; `pnpm db:up` restarts it. The test-database init script runs on a new volume only. If using a previously created volume without `fernleaf_test`, create that separate database explicitly rather than deleting the development volume.
 
@@ -104,6 +106,8 @@ pnpm test:e2e
 
 `pnpm test` aliases `pnpm test:integration`; normally run either rather than repeat both. Integration tests clean/reseed only the guarded `_test` database. Browser checks use the main synthetic development database and production builds; their Playwright configuration starts API/web servers automatically, or reuses running local servers. Install/build/migrate/seed first. Record actual results below; having a command listed does not mean it passed.
 
+On this workstation Chromium is cached in the ignored `.tooling/browsers` directory. To reuse it, set `$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.tooling/browsers'` before `pnpm test:e2e`. A fresh reviewer checkout can use the normal `playwright install chromium` command above; installation and testing must use the same cache setting.
+
 Web type-checking runs `next typegen` first so it works on a fresh checkout. Next.js generates `next-env.d.ts` and route definitions locally; those build artifacts are not committed.
 
 ## Environment variables
@@ -120,6 +124,7 @@ Placeholder examples are in `apps/api/.env.example` and `apps/web/.env.example`.
 | API `SESSION_TTL_HOURS` | Session lifetime, default/example 12 hours |
 | Web `API_INTERNAL_URL` | Server-side backend origin for the `/api/v1` HTTP rewrite; no duplicate `/api/v1` prefix |
 | Browser tests `E2E_BASE_URL` | Optional already-running web origin; disables Playwright-managed local servers for that run |
+| Browser tests `PLAYWRIGHT_BROWSERS_PATH` | Optional Playwright browser cache path; implementation workstation uses ignored `.tooling/browsers` |
 
 The browser uses relative `/api/v1` URLs. No database secret or session implementation is exported as `NEXT_PUBLIC_*`. Production cookies are Secure, HttpOnly and SameSite, scoped to the staff web host through the rewrite. Hosted smoke tests must check cookie forwarding and origin/CSRF handling on the actual domains.
 
@@ -130,7 +135,8 @@ flowchart LR
     Browser[Staff browser or driver phone] -->|Same-origin HTTP /api/v1| Web[Next.js rewrite]
     Web -->|HTTP| API[NestJS controllers and services]
     API --> Guards[Session and central permission guards]
-    Guards --> Prisma[Prisma PostgreSQL adapter]
+    Guards --> Rules[Configuration services and pure money/calendar rules]
+    Rules --> Prisma[Prisma PostgreSQL adapter and transactions]
     Prisma --> DB[(PostgreSQL)]
     Contracts[Public contracts package] -. API types .-> Web
     Contracts -. API types .-> API
@@ -146,50 +152,66 @@ Current API routes all use `/api/v1`:
 | `POST /auth/login` | Public, exact `Origin` required, strict email/password DTO; sets opaque cookie and returns identity/permissions/CSRF/expiry |
 | `GET /auth/me` | Session and `session.read`; returns current identity/permissions/CSRF/expiry |
 | `POST /auth/logout` | Session and `session.logout`, exact origin and `x-csrf-token`; revokes session and returns 204 |
-| `GET /settings` | Admin `settings.read`; fixed `{timezone:'Asia/Kolkata',currency:'USD',phase:0}` |
+| `GET/PATCH /settings` | Admin `settings.read/manage`; persisted kitchen calendar/default tier/cutoff/risk settings; PATCH requires current version |
+| `GET /settings/cutoff` | Admin; delivery-date cutoff preview, optional company delivery eligibility |
+| `GET/POST/PATCH /reference-data` | Admin; allergens, dietary tags, stations, portion sizes, packaging and public-domain restrictions |
+| `/dishes`, `/options`, `/dishes/:id/groups` | Admin; validated catalogue CRUD and ordered reusable-option groups; retire records with active flags |
+| `/categories`, `/menu-items` | Admin; active/secret categories, dish membership and display ordering |
+| `/price-tiers`, `/price-tiers/:id/matrix` | Admin; manual/cost/reference tiers and paginated dish/option effective-price matrix; bulk override save |
+| `/companies`, `/companies/:id/addresses`, `/companies/drivers` | Admin; company setup/updates, address maintenance and active Driver choices |
+| `/employees`, `/employees/:id/transfer` | Admin; employee configuration and atomic owner-aware transfers |
+| `/employees/:id/menu`, `/employees/:id/menu/categories/:categoryId` | Admin; authoritative normal/direct category previews applying visibility, prices and allergen guidance |
 | `POST /settings/check-access` | Admin `settings.manage`, exact origin and CSRF; returns `{allowed:true}` and writes no configuration |
 
 Undeclared route access policies fail closed. Future business capability names are already in the central map, but their declaration does not create those endpoints or implement resource ownership/date checks. Errors have `code`, `message`, optional `fieldErrors` and `requestId`; `X-Request-Id` identifies requests and API responses use `Cache-Control: no-store`.
 
 | Folder | Responsibility / status |
 | --- | --- |
-| `apps/web` | App Router, login, role/settings shells, typed HTTP client |
-| `apps/api` | NestJS auth/access, health/database and settings access shell |
-| `apps/api/prisma` | Staff/session schema, committed migration and idempotent seed |
+| `apps/web` | App Router, login, role landing pages, configuration forms and typed HTTP client |
+| `apps/api` | NestJS auth/access/health, catalogue/menu/pricing, companies/employees/settings and pure money/calendar rules |
+| `apps/api/prisma` | Staff/session and Phase 1 configuration schema, committed migrations and reviewer-safe seed |
 | `packages/contracts` | Public roles, permission identifiers, request/response contracts |
-| `tests/integration` | Real PostgreSQL/HTTP auth/access checks |
-| `tests/e2e` | Browser login/role/logout and rewrite smoke checks |
-| `docs` | [Diagrams](docs/diagrams.md) and [deployment runbook](docs/deployment.md) |
+| `tests/integration` | Auth/access, pure money/calendar rules, PostgreSQL configuration/menu/pricing/concurrency checks |
+| `tests/e2e` | Browser login/role/logout and configuration workflows through the HTTP rewrite |
+| `docs` | [Actual architecture](docs/architecture.md), [planned lifecycle diagrams](docs/diagrams.md), [Phase 1 rules/evidence](docs/phase-1.md) and [deployment runbook](docs/deployment.md) |
 | `Dockerfile.api`, `railway.json` | Repository-root API deployment foundation |
 
-Planned backend modules: catalogue/menu/pricing resolve visibility/prices; companies/employees own customer configuration; orders own quotes/snapshots/lifecycle/timeline; kitchen owns prep units/readiness; dispatch owns drops/driver actions; billing owns invoices/payments/credits; settings/calendar own cutoff rules; jobs/demo own catch-up/rolling fixtures; dashboards own role-scoped aggregates. Controllers stay thin; database access remains in the API.
+Implemented modules: auth/access/health; catalogue/menu/pricing for visibility and prices; companies/employees for customer configuration; settings for references and kitchen policy; pure domain helpers for money, pricing and calendar calculations. Planned modules: orders for quotes/snapshots/lifecycle/timeline; kitchen for prep/readiness; dispatch for drops/driver actions; billing for invoices/payments/credits; jobs/demo for catch-up/rolling fixtures; dashboards for role-scoped aggregates. Controllers stay thin; database access remains in the API.
 
-## Actual Phase 0 data model
+## Actual data model through Phase 1
 
-Only staff identities and sessions exist in Phase 0. Customer employees will be a separate identity type and will not reuse `StaffUser`.
+Staff identities log in; company employees remain separate customer records without credentials. The diagram shows the implemented schema's important relationships; [architecture details](docs/architecture.md) cover join tables and constraints.
 
 ```mermaid
 erDiagram
     STAFF_USER ||--o{ SESSION : has
-    STAFF_USER {
-        string id PK
-        string email UK
-        string displayName
-        string passwordHash
-        enum role
-        boolean active
-    }
-    SESSION {
-        string id PK
-        string tokenHash UK
-        string userId FK
-        datetime expiresAt
-    }
+    STAFF_USER o|--o{ COMPANY : default_driver
+    PRICE_TIER o|--o{ COMPANY : selected_tier
+    PRICE_TIER ||--o| KITCHEN_SETTINGS : default_tier
+    PRICE_TIER o|--o{ PRICE_TIER : derived_from
+    COMPANY ||--|{ EMPLOYEE : employs
+    EMPLOYEE o|--o| COMPANY : owner
+    COMPANY ||--|{ COMPANY_ADDRESS : has
+    COMPANY ||--|{ COMPANY_DOMAIN : claims
+    COMPANY_ADDRESS o|--o| COMPANY : default_address
+    CATEGORY ||--o{ MENU_ITEM : contains
+    DISH ||--o{ MENU_ITEM : appears_in
+    DISH ||--o{ DISH_OPTION_GROUP : defines
+    DISH_OPTION_GROUP ||--o{ GROUP_OPTION : orders
+    OPTION ||--o{ GROUP_OPTION : reused
+    PRICE_TIER ||--o{ DISH_TIER_PRICE : prices
+    DISH ||--o{ DISH_TIER_PRICE : has
+    PRICE_TIER ||--o{ OPTION_TIER_PRICE : prices
+    OPTION ||--o{ OPTION_TIER_PRICE : has
+    REFERENCE_VALUE o|--o{ DISH : station
+    REFERENCE_VALUE o|--o{ COMPANY : packaging
 ```
 
 Each account has one role. Normalized email is unique. Both IDs are UUIDs. Only the SHA256 hash of a random opaque cookie token is stored. Sessions have indexes on user/expiry and cascade when their staff user is deleted. Staff has creation/update timestamps; sessions have creation/expiry timestamps. Expiry, current role and active status are checked on protected requests; logout revokes the session. The final migration/schema is authoritative.
 
-[Future ER and workflow diagrams](docs/diagrams.md) are explicitly planned. Future guarantees include one non-null company per employee, same-company owner membership, unique normalized domains/SKUs, one item/tier price, one prep unit per combination, exact company/address/time drop keys and one invoice membership per order. Those are **not Phase 0 tables or verified constraints**.
+Phase 1 enforces one non-null company per employee, normalized unique company domains/SKUs, one explicit price per item/tier and a single settings/default-tier relationship. Composite foreign keys require company owners/default addresses to belong to that company. Employee email is normalized and unique within its company. Company creation inserts its first owner/address in one transaction; transfers replace an outgoing owner first and roll back on target-email conflicts. Calendar arrays use weekdays `0=Sunday` through `6=Saturday` and local-date holidays; API validation checks real dates and unique days. References have one kind and retire through `active` flags, retaining existing joins.
+
+Orders, prep units, drops, invoices and rolling fixture tables are **not implemented**. Their snapshots, grouping and uniqueness guarantees remain [planned lifecycle diagrams](docs/diagrams.md), with current configuration sequences in [actual architecture](docs/architecture.md).
 
 ## Decisions and preserved business rules
 
@@ -199,18 +221,22 @@ Each account has one role. Normalized email is unique. Both IDs are UUIDs. Only 
 | Authentication | scrypt password hashes; random opaque session tokens hashed in PostgreSQL, expiry and logout invalidation. HttpOnly cookies keep tokens out of browser JavaScript. |
 | CSRF | Exact mutation origin plus CSRF token. CORS alone is insufficient. Login and authenticated mutation policies need direct HTTP evidence. |
 | Permissions | Central capability map enforced by NestJS against current role. Hidden buttons are presentation. Driver ownership/current-date policies follow with real drops. |
-| Frontend | HTTP rewrite keeps same-origin cookies and the required Next-to-Nest boundary. Simple Phase 0 shells precede real workflow forms/query libraries. |
-| Money — planned Phase 1 | USD integer cents, exact BigInt/rational intermediate arithmetic. Derived unit prices round upward to five cents; explicit overrides retain entered cents. |
-| Time — planned Phase 1/2 | Asia/Kolkata calendar dates/today/cutoffs; UTC actual instants; injectable clock for boundary tests. |
+| Frontend | HTTP rewrite keeps same-origin cookies and the required Next-to-Nest boundary. Typed forms fetch/save through NestJS and report server validation errors. |
+| Money — implemented Phase 1 | USD integer cents bounded to PostgreSQL Int, exact BigInt/rational intermediates. Derived unit prices round upward to five cents; explicit overrides retain entered cents, including zero. Order/invoice reconciliation follows in later phases. |
+| Time — implemented helpers/settings | Asia/Kolkata calendar dates/today/cutoff previews; UTC instants; injectable clock. Automatic/manual cutoff processing and order locks follow in Phase 2. |
 | Snapshots — planned Phase 2 | Placement freezes purchase/company/delivery values; edits/transfers cannot rewrite history. Placed revisions require accepting a fresh quote. |
-| Transactions — planned domain work | Conditional versions/state, uniqueness and short serializable transactions with bounded retries for readiness/cutoff/invoice aggregates. Session persistence is not proof of future race safety. |
+| Transactions — configuration implemented | Company/setup/transfer/reference/pricing/settings writes use short serializable transactions with up to three attempts for serialization conflicts. Company/settings versions reject stale saves with 409. Future cutoff/readiness/invoice races need their own checks. |
+| Company ownership and references | Composite owner/address foreign keys require same-company membership. Active owners/default addresses cannot retire before replacement. Reference kinds are checked on writes; active packaging/station usage blocks retirement. |
+| Seed preservation | Four missing staff accounts are inserted without resetting edited accounts. Configuration installs once in one transaction when settings is absent; later seed runs preserve edits and deliberately removed prices/groups/domains. |
 | Hosting | Vercel web + Railway API/PostgreSQL, repository-root API Docker build. Access pending; no paid purchase, deployment or hiring-form submission claimed. |
 
-The rules below are **planned blueprint behaviour**, not implemented Phase 0 features:
+Pricing, menu/configuration and cutoff calculation below are **implemented in Phase 1**. Order combinations, processing, snapshots, fulfilment and billing remain planned for later phases:
 
 - **Pricing:** choose company tier or default tier; explicit price wins within that tier, otherwise valid cost/reference derivation, otherwise missing. Missing company-tier items do not fall back to another tier. Reject reference cycles. For rational `N/D` cents, rounded derived cents = `5 * ceil(N / (5 * D))`: $2.11 → $2.15; $2.10 remains $2.10. Missing-price options are unavailable; hide dishes with no price or no priced option in a required group.
+- **Menu/configuration:** require active category/menu item/dish, company visibility and effective prices. Secret categories are absent from normal preview but have direct staff preview links applying the same restrictions. Ordered required/optional groups reuse options. Employee allergen matches appear as warnings; dietary preferences are guidance and do not automatically remove food. References include portion sizes before the Should portion workflow.
+- **Company/employee:** normalize domains with lowercase/IDNA, reject malformed and data-listed public providers, require at least one domain and enforce global domain uniqueness. A denylist does not verify domain ownership. Each employee belongs to one company, with normalized email unique within that company. Owner transfers require an active source-company replacement and roll back every change on failure. Address/time/packaging flags are stored now; enforcing them on order requests belongs to Phase 2.
 - **Combinations:** required groups select exactly one option, optional groups zero/one, per combination. Reject foreign-group/duplicate selections and non-positive/fractional quantities; canonical duplicate combinations merge. Combination quantities equal line quantity; duplicate dish lines cannot bypass minimum quantity. Six $8.80 meals and four $9.20 meals total $89.60, producing two prep units of six/four meals.
-- **Calendars/cutoff:** company calendar allows delivery dates. Count backwards from before delivery across kitchen working days/holidays only, then use kitchen cutoff time; zero days uses the delivery date. Wednesday 7 October 2026, two days, 16:00 → Monday 5 October 16:00; a kitchen Monday holiday shifts it to Friday 2 October if weekends are closed. At `now >= cutoffAt`, ordinary editing/cancellation locks even if the job has not run.
+- **Calendars/cutoff:** company calendar allows delivery dates. Count backwards from before delivery across kitchen working days/holidays only, then use kitchen cutoff time; zero days uses the delivery date. Wednesday 7 October 2026, two days, 16:00 → Monday 5 October 16:00; a kitchen Monday holiday shifts it to Friday 2 October if weekends are closed. Settings allow 0–30 cutoff working days and 0–1440 risk minutes. The helper identifies `now >= cutoffAt`; actual order editing/cancellation locks follow in Phase 2.
 - **Processing:** scheduled, startup catch-up and Admin/manual processing share an idempotent service. Due Draft cancels; due Placed confirms original amounts, creates unique work/drop membership and records events. Manual action rejects future cutoff. Policy changes cannot reopen processed dates; unprocessed policy changes recompute/catch up. Company-calendar edits cannot silently invalidate live orders.
 - **Kitchen:** only active Confirmed orders create work, one unit per distinct combination on a line. Pending → Started → Done; direct completion records both times. Earliest unit start is order start; all units must be Done for readiness, using latest completion. Planned dispatch readiness = delivery minus travel minutes; kitchen readiness = another 30 minutes earlier. Unfinished work is late after its planned time, at risk within a configurable 15 minutes, and an exception if timing is missing. Repeated transitions cannot duplicate work.
 - **Orders/drop states:** Draft, Placed, Confirmed, Delivered, Cancelled, Rejected are commercial states. Exact company, canonical actual address and delivery instant group drops, independent of employee/packaging. Drop progression: Awaiting kitchen → Kitchen ready → Dispatch ready → Out for delivery → Delivered. Departure requires driver; delivering atomically updates active members. Driver scope comes from session ID and current kitchen date. On-time = actual delivery ≤ departure-captured target; undelivered timing is unknown.
@@ -219,7 +245,7 @@ The rules below are **planned blueprint behaviour**, not implemented Phase 0 fea
 
 ## Exact dashboard definitions — planned Phase 4
 
-Phase 0 landing pages show identity, role and navigation/access checks. They **do not display operational figures**. The following is the future backend-query contract; zero applies only to an empty query, not an unimplemented feature.
+Current landing pages show identity, role and navigation/access checks. They **do not display operational figures**. The following is the future backend-query contract; zero applies only to an empty query, not an unimplemented feature.
 
 Operational grouping uses **delivery date in Asia/Kolkata**, not created-at date. Cancelled/Rejected orders and empty/cancelled-only drops are excluded from active work. Each future card links to underlying records. Empty counts/sums = zero; zero-denominator ratios = **N/A**; missing data = explicit exception.
 
@@ -243,21 +269,21 @@ Numbers follow the blueprint's PDF mapping; original-source verification is pend
 | Assignment area | Priority / phase | Current status | Verification / remaining gap |
 | --- | --- | --- | --- |
 | Accounts/access | Must / 0, 4 | Foundation implemented and locally verified | 20 PostgreSQL/API and 10 browser tests pass; staff CRUD/resource scoping later |
-| 4.1 Catalogue/references | Must / 1, 2 | Not started | Dish/option fields/groups, portion-size reference, deactivation/snapshots |
+| 4.1 Catalogue/references | Must / 1, 2 | Configuration locally verified | Fields/reusable groups/references/retirement API and browser checks pass; purchase snapshot stability follows Phase 2 |
 | 4.1 Portions | Should / 6 | Deferred until Must gate | Complete group-wide size/surcharge matrix and snapshot tests |
-| 4.2 Menu | Must / 1 | Not started | Active visibility, company hiding, secret links, employee preview |
-| 4.3 Pricing | Must / 1 | Not started | Tier matrix; precedence/missing/cycle/rounding tests |
-| 4.4 Companies | Must / 1 | Not started | Domains, addresses/billing, owner, calendars/defaults |
-| 4.5 Employees | Must / 1 | Not started | One company, transfer/owner rules, flags/allergy guidance |
+| 4.2 Menu | Must / 1 | Locally verified | Normal/direct previews apply activity/hiding/pricing/required options; API and browser checks pass |
+| 4.3 Pricing | Must / 1 | Locally verified | Exact tiers/matrix/overrides, no missing fallback, cycles and five-cent rounding; rule/API/browser/race checks pass |
+| 4.4 Companies | Must / 1 | Locally verified | Domains/addresses/billing/owner/defaults/calendars; FK/race/rollback and browser checks pass |
+| 4.5 Employees | Must / 1 | Configuration locally verified | One company/transfer/replacement owner/email/flags/allergy guidance; API/browser checks pass, ordinary order flag enforcement Phase 2 |
 | 4.5 CSV import | Should / 6 | Deferred until Must gate | Partial success/row errors, duplicate policy and size limit |
 | 4.6 Orders/cutoff | Must / 2 | Not started | Quotes/snapshots/lifecycle/timeline, filters/pagination, jobs/overrides |
 | 4.7 Kitchen | Must / 3 | Role shell only | Real units/board/risk/readiness, force-completion and races |
 | 4.8 Dispatch/Driver | Must / 3 | Role shells only | Exact groups, drivers/transitions, mobile own-today delivery/timing |
 | Delivery photo | Optional / 6 | Not started | Persistent storage if added; delivery works without photo |
 | 4.9 Billing | Must / 4 | Not started | Unique invoice claims/payments/credits, concurrency/reconciliation |
-| 4.10 Settings | Must / 0, 1 | Access shell implemented; API permissions tested | No editable persisted calendar/cutoff/reference configuration |
+| 4.10 Settings | Must / 0, 1 | Locally verified | Kitchen calendar/cutoff/default tier/risk/references and cutoff preview; version/race/browser and cross-timezone checks pass |
 | 4.11 Dashboards | Must / 4 | Role shells; definitions above | Real aggregates and filtered-record reconciliation |
-| Non-functional rules | Must / every phase; 5 gate | Auth/validation/access tests and static/build checks pass | Money/calendar/combinations, domain concurrency, pagination, 400-order evidence later |
+| Non-functional rules | Must / every phase; 5 gate | Auth and Phase 1 access/domain/concurrency checks pass | 65 backend/rule and 14 browser tests pass; combination/order/invoice/400-order evidence later |
 | Submission/review | Must / 0, 5, 7 | Public repo verified; deployment files prepared | Commit/push pending; hosting/live smoke, sources/form, rolling fixtures and 14-day availability open |
 
 Later scope is deferred by the authorised phase boundary, not waived; no Must was downgraded. Optional saved filters, shortcuts and decorative visuals wait until Must workflows/tests pass.
@@ -265,7 +291,7 @@ Later scope is deferred by the authorised phase boundary, not waived; no Must wa
 | Phase | Current status | Acceptance gate |
 | --- | --- | --- |
 | 0 Foundation | Local implementation verified; hosted gate blocked | Deployed login, unauthorised API rejection and production database connection |
-| 1 Rules/configuration | Not started | Missing/hidden items excluded, derived rounding correct, company/owner/domain rules enforced |
+| 1 Rules/configuration | Implemented and locally verified | PASS: missing/hidden items excluded, derived rounding correct, company/owner/domain rules enforced; lint/types/tests/browser/build/container pass |
 | 2 Orders/cutoff | Not started | Snapshots survive catalogue edits; cutoff confirms/cancels exactly once |
 | 3 Fulfilment/delivery | Not started | Valid cross-role journey and invalid/concurrent transitions cannot duplicate work |
 | 4 Billing/dashboards | Not started | Concurrent invoice requests cannot double-bill; figures reconcile to filtered records |
@@ -277,11 +303,11 @@ Later scope is deferred by the authorised phase boundary, not waived; no Must wa
 
 Explicit requirements as represented in the blueprint include four accounts/roles, Next/Nest/Prisma, all eleven Must areas, backend rules, immutable history, exact money, calendars, unique invoicing, current-day Driver data and two-week review availability. Compare those to the original assignment/email when supplied.
 
-Our choices: PostgreSQL/pnpm/TypeScript; opaque sessions instead of JWT; USD from dollar examples; Asia/Kolkata kitchen zone; exactly one selection in required groups, zero/one in optional groups; Admin authors configuration/orders/billing; 15-minute risk threshold; public-provider domain denylist without ownership verification; allergies/preferences as warnings rather than automatic filtering; internal credits preserving issued invoices; drop-wide post-departure corrections; portion surcharges independent of tiers. Only applicable foundation decisions are implemented in Phase 0. Later deviations need reasons and evidence.
+Our choices: PostgreSQL/pnpm/TypeScript; opaque sessions instead of JWT; USD from dollar examples; Asia/Kolkata kitchen zone; exactly one selection in required groups, zero/one in optional groups; Admin authors configuration/orders/billing; 15-minute default risk threshold; public-provider domain denylist without ownership verification; normalized employee email unique within its company; calendar arrays instead of separate weekday/holiday tables; one generic typed reference table; allergies/preferences as warnings rather than automatic filtering; internal credits preserving issued invoices; drop-wide post-departure corrections; portion surcharges independent of tiers. Configuration choices through Phase 1 are implemented; order/billing/portion interpretations remain planned. Later deviations need reasons and evidence.
 
 ## Tests and actual evidence
 
-Results recorded on 3 October 2026 for this Phase 0 checkout. No future business-rule test or deployment is counted as passed.
+Results recorded on 3 October 2026. The first table preserves the verified **Phase 0** baseline; it is not a claim that those same commands passed after Phase 1 changes. Current-phase evidence follows separately. No future business-rule test or deployment is counted as passed.
 
 | Check | Evidence |
 | --- | --- |
@@ -301,15 +327,31 @@ Results recorded on 3 October 2026 for this Phase 0 checkout. No future business
 | Local production-mode API container | PASS; non-root `node` user, committed-migration startup, real PostgreSQL health on localhost:3002 and anonymous settings 401. Synthetic local database, not a production deployment/database. |
 | `pnpm dev` | PASS; compiler watch reports zero errors, Next starts, direct API/proxied health match expected JSON and `/login` returns 200 |
 | Deployed login / production API-to-DB | **Blocked by hosting access; not run** |
-| Pricing/cutoff/combinations/timing | Not run; rule implementations start in phases 1–3 |
-| Invoice/domain concurrency/full role journey | Not run; phases 2–5 |
+| Phase 0 pricing/cutoff/combinations/timing | Not run in that phase; current pricing/cutoff evidence follows below |
+| Phase 0 invoice/domain concurrency/full role journey | Not run in that phase; current domain concurrency evidence follows below |
 | 400-order kitchen performance | Not run; no order/board model. No latency claim. |
 
 The 20 backend cases cover database-backed health/cache/request IDs, all four login roles, email normalization, password/session hashing, invalid credentials/DTO fields, login origin, unauthenticated/forbidden access, CSRF/origin, logout/revocation, expiry, current role/active checks, sign-in rotation, seed preservation and production cookie flags. The 10 browser cases verify every role's login/refresh/logout, invalid credentials, Admin settings and direct non-Admin permission denial through the Next.js rewrite. The Driver shell passed at 390 × 844 with no horizontal overflow; its saved screenshot was inspected. This verifies the shell, not the later delivery workflow.
 
 Jest 30/NestJS 12 ESM interoperation uses `--experimental-vm-modules` automatically in the test script; Node emits its expected experimental warning. The production API does not need that flag. On this agent's restricted Windows sandbox, `tsx` seed initially hit `uv_os_get_passwd`; the normal Windows user run succeeded without application changes.
 
-Planned pure tests: weekend/holiday/zero-day/exact-boundary cutoff; company/default tier, missing prices, overrides, cycles and five-cent rounding; per-combination groups/sums/MOQ/duplicates; readiness/risk timing. Planned PostgreSQL cases: snapshot stability after catalogue edits/employee transfer, concurrent/repeated cutoff, final-unit readiness races, invoice uniqueness/rollback/credit limits, own-driver/date restrictions, invalid departure/delivery, atomic grouped updates and employee flags against crafted requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These are acceptance plans, not passing Phase 0 tests.
+Final Phase 1 local evidence:
+
+| Check | Actual result / remaining work |
+| --- | --- |
+| Phase 1 migration | Applied to main and guarded test PostgreSQL databases; Prisma client generated |
+| `pnpm lint` / `pnpm typecheck` Phase 1 | PASS; complete repository lint and contracts/API/web type checks |
+| `pnpm --filter @fernleaf/api test:integration --runTestsByPath ../../tests/integration/configuration.spec.ts` | PASS; 16 tests, 12.073 seconds; direct role denial, atomic setup, domain claim race, same-company FK constraints, transfer rollback, flags/references and company/settings version races |
+| `pnpm test:integration` Phase 1 | PASS; **65 tests / 4 suites in 51.239 seconds**, using isolated PostgreSQL: 20 auth, 15 catalogue/menu/pricing, 17 configuration and 13 pure money/calendar cases |
+| Concurrent tier-reference regression | PASS; 20 independent race pairs in focused checks plus 10 pairs in the full suite. Each pair accepts one edit and rejects the cycle; no cycle persists. The initial HTTP 500 was fixed by handling PrismaPg's structured SQLSTATE `40001`/`40P01` commit conflicts alongside Prisma `P2034`. |
+| `pnpm build` Phase 1 | PASS; contracts, compiled NestJS and all Next.js production routes |
+| `pnpm test:e2e` Phase 1 | PASS; **14 Chromium tests in 19.6 seconds**, exit 0: 10 authentication/access regression cases and four complete Admin configuration workflows. Final four-flow rerun after group-ID preservation also PASS in 15.1 seconds with browser timezone America/Los_Angeles. |
+| `docker build --file Dockerfile.api --tag fernleaf-api:phase1 .` | PASS; current API deployment image generates Prisma and compiles contracts/API |
+| Phase 1 local production-mode container | PASS; non-root user, committed migrations, PostgreSQL health, four logins, production cookie attributes, anonymous 401/non-Admin 403, persisted settings/menu and logout. Explicit local HTTP cookie client; hosted HTTPS browser behaviour remains unverified. Temporary API container stopped; PostgreSQL retained. |
+| Phase 1 GitHub CI/commit/push | Pending phase commit/push; all local acceptance checks have passed |
+| Hosted smoke checks | Blocked by pending hosting access; not run |
+
+[Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
 
 ## Demo accounts and reviewer walkthrough
 
@@ -322,15 +364,28 @@ These intentionally public credentials are for synthetic staff only; the databas
 | Dispatch | `dispatch@test.com` | `Test@1234` |
 | Driver | `driver@test.com` | `Test@1234` |
 
-Phase 0 walkthrough: run local setup, open the web app, sign in with each account in a fresh session, inspect the correct shell (Admin `/dashboard`, Kitchen `/kitchen`, Dispatch `/dispatch`, Driver `/today`), refresh to retain the session, open Admin's read-only `/settings`, then sign out. The UI does not offer a settings mutation. An unauthenticated `/api/v1/auth/me` request returns 401; a signed-in non-Admin `/api/v1/settings` read or `/settings/check-access` POST is forbidden. The HTTP probe requires valid origin/CSRF to test permission specifically. There is no order, kitchen, delivery or invoice journey yet.
+Run local setup, open the web app and sign in with each account in a fresh session. Check the correct landing page (Admin `/dashboard`, Kitchen `/kitchen`, Dispatch `/dispatch`, Driver `/today`), refresh to retain the session and sign out. The three operational roles currently have landing pages; there is no order/prep/delivery/invoice journey yet. Anonymous `/api/v1/auth/me` returns 401; non-Admin configuration HTTP requests return 403.
 
-The future journey is Admin quote/place → real passed-cutoff confirmation → Kitchen completion → Dispatch assignment/departure → Driver delivery → Admin invoice/payment/credit. **Manual past-cutoff processing is not implemented in Phase 0.** Phase 2 will add an Admin action selecting a delivery date whose kitchen cutoff has already passed, sharing the scheduler service and returning confirmed/cancelled/skipped/failed counts. It rejects future cutoff; reviewers will not need to change the clock.
+Phase 1 Admin walkthrough:
 
-Only four staff accounts are seeded now. Future scenarios: at least three companies, 20–30 employees, 12–15 dishes/options/groups, three tiers, hidden/secret categories, missing-price examples, stations, coherent past/today/next-week orders and unpaid/paid/credited invoices. A separate fixture builder uses scenario/date unique keys. Startup catch-up and kitchen-midnight jobs append missing current-day fixtures without resetting reviewer edits; a seven-day demo company/calendar keeps valid Driver work on weekends. Ready/out-for-delivery own-today drops have clearly labelled synthetic prior history. **Rolling fixtures and those scenarios are planned for Phase 4/5, not deployed.**
+1. Open **Catalogue** at `/catalogue`: inspect dish fields, reusable options, ordered groups and reference lists including portion sizes. Edit a record, save and refresh to confirm persistence. Retire through the active flag rather than deleting a referenced dish.
+2. Open **Pricing** at `/pricing`: select **Standard** in the matrix to see explicit dish/option prices and the deliberately missing soup price. Select **Cost plus 15%** to see the rice dish's 211-cent cost resolve to 245 cents through exact derivation and upward five-cent rounding. An explicit override of 211 cents remains 211; clearing an override restores the tier rule or missing status.
+3. Open **Menu** at `/menu`, choose employee preview and the demo employee. Standard shows the priced rice box; the unpriced soup is excluded with a diagnostic. Use the Chef's preview direct category link to see its priced secret dish. Secret links still respect company hiding. Categories/items can be created, ordered, edited and retired here.
+4. Open **Companies** at `/companies`: edit billing, calendar, price tier, packaging/driver/default address and hidden categories/items. Selecting **Company manual** demonstrates a missing company-tier price without fallback. Refresh employee preview after changing restrictions. Add a company with its initial employee owner and full address; duplicate/public domains and owners from another company are rejected.
+5. Open **Employees** at `/employees`: configure allergy/preference guidance and delivery choice flags. Transfer an employee using the dedicated action; an owner requires a replacement from the source company. A conflicting normalized target email rolls back the transfer and replacement.
+6. Open **Settings** at `/settings`: edit kitchen working days, holidays, cutoff time/count, default tier and risk minutes; save and refresh. Preview 7 October 2026 with two days and 16:00: weekdays give 5 October 16:00 IST; adding the kitchen holiday 5 October gives 2 October 16:00 IST. A company's holiday affects delivery eligibility without shifting that cutoff. A stale browser save returns a reload-required conflict.
+
+The future journey is Admin quote/place → real passed-cutoff confirmation → Kitchen completion → Dispatch assignment/departure → Driver delivery → Admin invoice/payment/credit. **Manual past-cutoff processing is not implemented through Phase 1.** Phase 2 will add an Admin action selecting a delivery date whose kitchen cutoff has already passed, sharing the scheduler service and returning confirmed/cancelled/skipped/failed counts. It rejects future cutoff; reviewers will not need to change the clock. Current cutoff previews calculate dates without changing any order state.
+
+The initial Phase 1 seed contains four staff accounts; Fernleaf Demo Labs with a seven-day company calendar, owner plus one employee and an address; three tiers (Standard/manual, Cost plus 15%, Company manual/missing); three dishes including unpriced soup and a secret dish; one reusable option/required group; normal/secret categories; packaging, stations, allergen/dietary/portion references and a public-domain denylist. The kitchen starts with Monday–Friday, no holidays, 16:00, two cutoff working days, Standard default and a 15-minute risk threshold. There are no operational orders/drops/invoices yet.
+
+Configuration initializes atomically only when the singleton settings row is absent. Once initialized, rerunning `pnpm db:seed` skips configuration completely, preserving reviewer edits, employee transfers and intentionally removed prices/groups/domains. It continues to insert missing demo staff without overwriting existing accounts. This is an initial fixture installer, not a repair/reset tool; do not delete settings to refresh review data.
+
+Future scenarios: at least three companies, 20–30 employees, 12–15 dishes/options/groups, coherent past/today/next-week orders and unpaid/paid/credited invoices. A separate fixture builder will use scenario/date unique keys. Startup catch-up and kitchen-midnight jobs must append missing current-day fixtures without resetting reviewer edits; a seven-day demo company/calendar will keep valid Driver work on weekends. Ready/out-for-delivery own-today drops will have clearly labelled synthetic prior history. **Rolling operational fixtures are planned for Phase 4/5, not implemented or deployed.**
 
 ## Deployment and two-week availability
 
-[Deployment runbook](docs/deployment.md) covers monorepo settings, variables, migration/seed order, health, HTTPS cookies/origins, logs and recovery. Hosting access is pending; no provider project, production database, live URL or production cookie success is claimed.
+[Deployment runbook](docs/deployment.md) covers monorepo settings, variables, migration/seed order, health, HTTPS cookies/origins, logs and recovery. Hosting access is pending; no provider project, production database, live URL or hosted HTTPS cookie verification is claimed. Production cookie attributes passed the local API container smoke.
 
 The target is Vercel web and an always-running Railway API/PostgreSQL in one project/region. Verify account eligibility/current limits and budget before provisioning. Future scheduled jobs need an awake process/catch-up/logs; sleeping-host fallback needs a separately scheduled authenticated trigger and cold-start tests. Paid purchases and hiring-form submission are not authorised by commit permission.
 
@@ -338,6 +393,8 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Local Phase 0 verification is finished. The phase commit is pushed to verified public `dishitabuilds/fernleaf-kitchen` on `main`, its full hash matched the remote branch, and GitHub CI passed. Hosting access remains the deployed-gate blocker; configure the prepared services and run the hosted acceptance checks when access is available. The subsequent documentation commit records this verified phase result; use `git log` for the latest documentation hash.
+Phase 1 implementation and its local acceptance gate are verified. The phase completion commit/push and GitHub CI verification are the remaining synchronization steps at this pre-commit checkpoint. Local checks pass: lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API image/container smoke. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned.
 
-Stop after the Phase 0 report until another phase is authorised. **Phase 1 is next:** money/calendar helpers and tests, catalogue/options/reference data including portion sizes, menus/tiers, companies/employees and persisted editable settings. Keep the Phase 0 deployed gate visible until live smoke tests pass. Fresh conversations should read rules/README, inspect Git state and consult relevant blueprint sections before editing.
+Hosting access remains the precise deployed-gate blocker; configure the prepared services and run deployed sign-in, unauthorized-access and production-database checks when access is available. The original assignment PDF/submission instructions remain missing. There is no live URL or deployment claim.
+
+Stop after the Phase 1 report until another phase is authorised. **Phase 2 is next:** order drafts/placement, exact combinations/server quotes, immutable purchase/company/delivery snapshots, lifecycle/timeline/filtering and shared scheduled/startup/manual cutoff processing with explicit Admin overrides. Reuse the configuration/menu/pricing/calendar services and preserve the Phase 0 hosted gate until live checks pass. Fresh conversations should read rules/README, inspect Git state and consult relevant blueprint sections before editing.

@@ -1,28 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { SettingsResponse } from '@fernleaf/contracts';
+import { useState } from 'react';
+import type { CompanyResponse, CutoffPreviewResponse, PriceTierRecord, SettingsResponse } from '@fernleaf/contracts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Icon } from '@/components/icons';
-import { apiRequest, errorMessage } from '@/lib/http';
+import { calendarFields } from '@/features/configuration/companies';
+import { DataState, EditorForm, Heading, lines, numberValue, selections, textValue, useMutation, useResource, useChoiceResource } from '@/features/configuration/common';
 
 export function SettingsShell() {
-  const [settings, setSettings] = useState<SettingsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const resource = useResource<SettingsResponse>('/settings');
+  const tiers = useChoiceResource<PriceTierRecord>('/price-tiers?page=1&pageSize=100');
+  const action = useMutation();
+  return <><Heading title="Settings" description="Editable kitchen calendar, cutoff policy and shared pricing defaults." /><DataState loading={resource.loading || tiers.loading} failure={resource.failure ?? tiers.failure} refresh={() => { resource.refresh(); tiers.refresh(); }} />{resource.data && tiers.data && <><Card className="settings-card"><div className="settings-card-heading"><div><h2>Kitchen defaults</h2><p>Delivery dates and cutoff counting use the kitchen&apos;s local calendar.</p></div></div><dl className="settings-values"><div><dt>Kitchen timezone<span>Independent of the browser or server timezone.</span></dt><dd>{resource.data.timezone}</dd></div><div><dt>Currency<span>Amounts are persisted as integer minor units.</span></dt><dd>{resource.data.currency}</dd></div></dl></Card><EditorForm key={resource.data.version} title="Edit kitchen defaults" fields={[{ name: 'defaultPriceTierId', label: 'Default price tier', type: 'select', required: true, choices: (tiers.data?.items ?? []).filter((tier) => tier.active).map((tier) => ({ value: tier.id, label: tier.name })) }, ...calendarFields.map((field) => field.name === 'holidays' ? { ...field, help: 'One kitchen holiday per line (YYYY-MM-DD). These holidays are excluded when counting backward for cutoffs.' } : field), { name: 'cutoffTime', label: 'Cutoff time', type: 'time', required: true }, { name: 'cutoffWorkingDays', label: 'Working days before delivery', type: 'number', min: 0, max: 30, required: true, help: 'Zero means the delivery date at the configured cutoff time.' }, { name: 'riskThresholdMinutes', label: 'At-risk threshold (minutes)', type: 'number', min: 0, max: 1440, required: true }]} initial={{ ...resource.data, holidays: resource.data.holidays.join('\n') }} pending={action.pending} failure={action.failure} notice={action.notice} onSubmit={(form) => void action.mutate('/settings', 'PATCH', { version: resource.data!.version, defaultPriceTierId: textValue(form, 'defaultPriceTierId'), workingDays: selections(form, 'workingDays').map(Number), holidays: lines(form, 'holidays'), cutoffTime: textValue(form, 'cutoffTime'), cutoffWorkingDays: numberValue(form, 'cutoffWorkingDays'), riskThresholdMinutes: numberValue(form, 'riskThresholdMinutes') }, resource.refresh)} /></>}<CutoffPreview /></>;
+}
 
-  useEffect(() => {
-    let active = true;
-    apiRequest<SettingsResponse>('/settings').then((result) => { if (active) { setSettings(result); setError(null); } }).catch((failure: unknown) => { if (active) setError(errorMessage(failure)); });
-    return () => { active = false; };
-  }, [attempt]);
-
-  return <>
-    <div className="page-heading"><div><div className="eyebrow">KITCHEN CONFIGURATION</div><h1>Settings</h1><p>The shared foundations for every meal and delivery.</p></div><span className="phase-badge">Phase 0</span></div>
-    <Card className="settings-card"><div className="settings-card-heading"><span className="empty-icon"><Icon name="settings" /></span><div><h2>Kitchen defaults</h2><p>Current values supplied by the kitchen service.</p></div><span className="readonly-label">Read only</span></div>
-      {error ? <div className="settings-error"><p role="alert">{error}</p><Button variant="secondary" onClick={() => { setError(null); setAttempt((value) => value + 1); }}>Try again</Button></div> : !settings ? <p className="settings-loading" role="status">Loading kitchen defaults…</p> : <dl className="settings-values"><div><dt>Kitchen timezone<span>Used for delivery dates, cutoffs and today.</span></dt><dd>{settings.timezone}</dd></div><div><dt>Currency<span>All prices will use integer minor units.</span></dt><dd>{settings.currency}</dd></div></dl>}
-      <div className="settings-planned"><Icon name="clock" /><p>Calendar, cutoff and reference-data editing are planned for Phase 1.</p></div>
-    </Card>
-  </>;
+function CutoffPreview() {
+  const companies = useChoiceResource<CompanyResponse>('/companies?page=1&pageSize=100');
+  const [query, setQuery] = useState('');
+  const preview = useResource<CutoffPreviewResponse>(query ? `/settings/cutoff?${query}` : null);
+  return <Card className="editor-card"><h2>Delivery date &amp; cutoff preview</h2><p className="section-description">Uses the saved policy. Only kitchen working days and kitchen holidays count backward; a company&apos;s calendar decides whether it accepts this delivery date. Cutoff processing will be added in Phase 2.</p><form className="form-grid" aria-label="Preview cutoff" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const params = new URLSearchParams({ deliveryDate: textValue(form, 'deliveryDate') }); if (textValue(form, 'companyId')) params.set('companyId', textValue(form, 'companyId')); setQuery(params.toString()); preview.refresh(); }}><label className="form-field" htmlFor="cutoff-date">Delivery date<input id="cutoff-date" type="date" name="deliveryDate" required /></label><label className="form-field" htmlFor="cutoff-company">Company (optional)<select id="cutoff-company" name="companyId"><option value="">Kitchen cutoff only</option>{companies.data?.items.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><div className="form-actions full"><Button>Preview cutoff</Button></div></form><DataState loading={preview.loading} failure={preview.failure} refresh={preview.refresh} />{query && preview.data && <dl className="preview-values"><div><dt>Delivery date</dt><dd>{preview.data.deliveryDate}</dd></div><div><dt>Cutoff in Asia/Kolkata</dt><dd>{new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(preview.data.cutoffAt))}</dd></div><div><dt>Company delivery calendar</dt><dd>{preview.data.companyDeliveryAllowed === null ? 'No company selected' : preview.data.companyDeliveryAllowed ? 'Delivery allowed' : 'Delivery unavailable on this date'}</dd></div><div><dt>Policy version</dt><dd>{preview.data.settingsVersion}</dd></div></dl>}</Card>;
 }

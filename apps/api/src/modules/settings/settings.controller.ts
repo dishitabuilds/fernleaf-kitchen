@@ -1,20 +1,28 @@
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
-import type { SettingsResponse } from '@fernleaf/contracts';
+import { Body, Controller, Get, HttpCode, Patch, Post, Query } from '@nestjs/common';
 import { RequirePermissions } from '../../common/access.decorator';
+import { CutoffPreviewDto, SettingsUpdateDto } from './settings.dto';
+import { SettingsService } from './settings.service';
 
 @Controller('settings')
 export class SettingsController {
+  constructor(private readonly settings: SettingsService) {}
   @RequirePermissions('settings.read')
   @Get()
-  read(): SettingsResponse {
-    return { timezone: 'Asia/Kolkata', currency: 'USD', phase: 0 };
-  }
+  read() { return this.settings.read(); }
+
+  @RequirePermissions('settings.manage')
+  @Patch()
+  update(@Body() dto: SettingsUpdateDto) { return this.settings.update(dto); }
+
+  @RequirePermissions('settings.read')
+  @Get('cutoff')
+  preview(@Query() dto: CutoffPreviewDto) { return this.settings.preview(dto); }
 
   @RequirePermissions('settings.manage')
   @Post('check-access')
   @HttpCode(200)
   checkAccess(): { allowed: true } {
-    // Phase 0 proves the mutation boundary; editable domain settings belong to Phase 1.
+    // Retain the explicit access probe used by the authentication regression suite.
     return { allowed: true };
   }
 }

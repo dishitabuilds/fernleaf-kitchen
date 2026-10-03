@@ -16,15 +16,333 @@ enum StaffRole {
 }
 
 model StaffUser {
-  id           String    @id @default(uuid()) @db.Uuid
-  email        String    @unique @db.VarChar(254)
-  displayName  String    @db.VarChar(100)
-  passwordHash String    @db.VarChar(255)
-  role         StaffRole
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
-  sessions     Session[]
+  id                     String    @id @default(uuid()) @db.Uuid
+  email                  String    @unique @db.VarChar(254)
+  displayName            String    @db.VarChar(100)
+  passwordHash           String    @db.VarChar(255)
+  role                   StaffRole
+  active                 Boolean   @default(true)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @db.Timestamptz(3)
+  sessions               Session[]
+  defaultDriverCompanies Company[]
+}
+
+enum ReferenceKind {
+  ALLERGEN
+  DIETARY_TAG
+  KITCHEN_STATION
+  PORTION_SIZE
+  PACKAGING_TYPE
+  PUBLIC_EMAIL_DOMAIN
+}
+
+enum FoodTemperature {
+  HOT
+  COLD
+  AMBIENT
+}
+
+enum PriceRule {
+  MANUAL
+  COST
+  REFERENCE
+}
+
+model ReferenceValue {
+  id                String               @id @default(uuid()) @db.Uuid
+  kind              ReferenceKind
+  name              String               @db.VarChar(254)
+  active            Boolean              @default(true)
+  sortOrder         Int                  @default(0)
+  stations          Dish[]               @relation("DishStation")
+  companies         Company[]            @relation("CompanyPackaging")
+  dishAllergens     DishAllergen[]
+  dishTags          DishDietaryTag[]
+  optionAllergens   OptionAllergen[]
+  optionTags        OptionDietaryTag[]
+  employeeAllergens EmployeeAllergen[]
+  employeeTags      EmployeeDietaryTag[]
+
+  @@unique([kind, name])
+}
+
+model Dish {
+  id          String            @id @default(uuid()) @db.Uuid
+  sku         String            @unique @db.VarChar(80)
+  name        String            @db.VarChar(150)
+  description String            @default("") @db.VarChar(2000)
+  imageUrl    String?           @db.VarChar(2048)
+  temperature FoodTemperature   @default(HOT)
+  costMinor   Int               @default(0)
+  stationId   String?           @db.Uuid
+  station     ReferenceValue?   @relation("DishStation", fields: [stationId], references: [id], onDelete: Restrict)
+  minQuantity Int?
+  active      Boolean           @default(true)
+  allergens   DishAllergen[]
+  dietaryTags DishDietaryTag[]
+  groups      DishOptionGroup[]
+  menuItems   MenuItem[]
+  prices      DishTierPrice[]
+}
+
+model Option {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @db.VarChar(150)
+  description String             @default("") @db.VarChar(2000)
+  costMinor   Int                @default(0)
+  active      Boolean            @default(true)
+  allergens   OptionAllergen[]
+  dietaryTags OptionDietaryTag[]
+  groups      GroupOption[]
+  prices      OptionTierPrice[]
+}
+
+model DishAllergen {
+  dishId      String         @db.Uuid
+  referenceId String         @db.Uuid
+  dish        Dish           @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([dishId, referenceId])
+}
+
+model DishDietaryTag {
+  dishId      String         @db.Uuid
+  referenceId String         @db.Uuid
+  dish        Dish           @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([dishId, referenceId])
+}
+
+model OptionAllergen {
+  optionId    String         @db.Uuid
+  referenceId String         @db.Uuid
+  option      Option         @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([optionId, referenceId])
+}
+
+model OptionDietaryTag {
+  optionId    String         @db.Uuid
+  referenceId String         @db.Uuid
+  option      Option         @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([optionId, referenceId])
+}
+
+model DishOptionGroup {
+  id        String        @id @default(uuid()) @db.Uuid
+  dishId    String        @db.Uuid
+  dish      Dish          @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  name      String        @db.VarChar(150)
+  required  Boolean       @default(false)
+  sortOrder Int           @default(0)
+  options   GroupOption[]
+
+  @@index([dishId, sortOrder])
+}
+
+model GroupOption {
+  groupId   String          @db.Uuid
+  optionId  String          @db.Uuid
+  group     DishOptionGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  option    Option          @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  sortOrder Int             @default(0)
+
+  @@id([groupId, optionId])
+}
+
+model Category {
+  id        String                  @id @default(uuid()) @db.Uuid
+  name      String                  @db.VarChar(150)
+  active    Boolean                 @default(true)
+  secret    Boolean                 @default(false)
+  sortOrder Int                     @default(0)
+  items     MenuItem[]
+  hiddenFor CompanyHiddenCategory[]
+}
+
+model MenuItem {
+  id         String                  @id @default(uuid()) @db.Uuid
+  categoryId String                  @db.Uuid
+  dishId     String                  @db.Uuid
+  category   Category                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  dish       Dish                    @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  active     Boolean                 @default(true)
+  sortOrder  Int                     @default(0)
+  hiddenFor  CompanyHiddenMenuItem[]
+
+  @@unique([categoryId, dishId])
+  @@index([categoryId, sortOrder])
+}
+
+model PriceTier {
+  id              String            @id @default(uuid()) @db.Uuid
+  name            String            @unique @db.VarChar(150)
+  rule            PriceRule         @default(MANUAL)
+  numerator       Int               @default(1)
+  denominator     Int               @default(1)
+  referenceTierId String?           @db.Uuid
+  referenceTier   PriceTier?        @relation("TierReference", fields: [referenceTierId], references: [id], onDelete: Restrict)
+  dependents      PriceTier[]       @relation("TierReference")
+  active          Boolean           @default(true)
+  dishPrices      DishTierPrice[]
+  optionPrices    OptionTierPrice[]
+  companies       Company[]
+  settings        KitchenSettings[]
+}
+
+model DishTierPrice {
+  tierId      String    @db.Uuid
+  dishId      String    @db.Uuid
+  amountMinor Int
+  tier        PriceTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  dish        Dish      @relation(fields: [dishId], references: [id], onDelete: Restrict)
+
+  @@id([tierId, dishId])
+}
+
+model OptionTierPrice {
+  tierId      String    @db.Uuid
+  optionId    String    @db.Uuid
+  amountMinor Int
+  tier        PriceTier @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  option      Option    @relation(fields: [optionId], references: [id], onDelete: Restrict)
+
+  @@id([tierId, optionId])
+}
+
+model KitchenSettings {
+  id                   Int       @id @default(1)
+  timezone             String    @default("Asia/Kolkata") @db.VarChar(40)
+  currency             String    @default("USD") @db.Char(3)
+  defaultPriceTierId   String    @db.Uuid
+  defaultPriceTier     PriceTier @relation(fields: [defaultPriceTierId], references: [id], onDelete: Restrict)
+  workingDays          Int[]     @default([1, 2, 3, 4, 5])
+  holidays             String[]  @default([])
+  cutoffTime           String    @default("16:00") @db.VarChar(5)
+  cutoffWorkingDays    Int       @default(2)
+  riskThresholdMinutes Int       @default(15)
+  version              Int       @default(1)
+}
+
+model Company {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  name               String                  @db.VarChar(150)
+  billingName        String                  @db.VarChar(150)
+  billingEmail       String                  @db.VarChar(254)
+  billingAddress     String                  @db.VarChar(1000)
+  billingContactName String                  @db.VarChar(150)
+  phone              String?                 @db.VarChar(40)
+  active             Boolean                 @default(true)
+  ownerEmployeeId    String?                 @db.Uuid
+  owner              Employee?               @relation("CompanyOwner", fields: [ownerEmployeeId, id], references: [id, companyId], onDelete: Restrict, onUpdate: NoAction)
+  defaultAddressId   String?                 @db.Uuid
+  defaultAddress     CompanyAddress?         @relation("DefaultAddress", fields: [defaultAddressId, id], references: [id, companyId], onDelete: Restrict, onUpdate: NoAction)
+  priceTierId        String?                 @db.Uuid
+  priceTier          PriceTier?              @relation(fields: [priceTierId], references: [id], onDelete: Restrict)
+  deliveryTime       String                  @default("12:30") @db.VarChar(5)
+  deliveryMinutes    Int                     @default(60)
+  packagingId        String?                 @db.Uuid
+  packaging          ReferenceValue?         @relation("CompanyPackaging", fields: [packagingId], references: [id], onDelete: Restrict)
+  defaultDriverId    String?                 @db.Uuid
+  defaultDriver      StaffUser?              @relation(fields: [defaultDriverId], references: [id], onDelete: Restrict)
+  driverInstructions String                  @default("") @db.VarChar(2000)
+  workingDays        Int[]                   @default([1, 2, 3, 4, 5])
+  holidays           String[]                @default([])
+  version            Int                     @default(1)
+  domains            CompanyDomain[]
+  addresses          CompanyAddress[]        @relation("CompanyAddresses")
+  employees          Employee[]              @relation("CompanyEmployees")
+  hiddenCategories   CompanyHiddenCategory[]
+  hiddenItems        CompanyHiddenMenuItem[]
+
+  @@unique([ownerEmployeeId, id])
+  @@unique([defaultAddressId, id])
+}
+
+model CompanyDomain {
+  id        String  @id @default(uuid()) @db.Uuid
+  companyId String  @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  domain    String  @unique @db.VarChar(254)
+}
+
+model CompanyAddress {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @db.Uuid
+  company           Company  @relation("CompanyAddresses", fields: [companyId], references: [id], onDelete: Restrict)
+  label             String   @db.VarChar(100)
+  line1             String   @db.VarChar(250)
+  line2             String?  @db.VarChar(250)
+  city              String   @db.VarChar(100)
+  region            String   @db.VarChar(100)
+  postalCode        String   @db.VarChar(30)
+  country           String   @db.VarChar(100)
+  active            Boolean  @default(true)
+  defaultForCompany Company? @relation("DefaultAddress")
+
+  @@unique([id, companyId])
+}
+
+model Employee {
+  id                 String               @id @default(uuid()) @db.Uuid
+  companyId          String               @db.Uuid
+  company            Company              @relation("CompanyEmployees", fields: [companyId], references: [id], onDelete: Restrict)
+  email              String               @db.VarChar(254)
+  name               String               @db.VarChar(150)
+  phone              String?              @db.VarChar(40)
+  active             Boolean              @default(true)
+  canChooseAddress   Boolean              @default(false)
+  canChangeTime      Boolean              @default(false)
+  canChangePackaging Boolean              @default(false)
+  ownerOfCompany     Company?             @relation("CompanyOwner")
+  allergens          EmployeeAllergen[]
+  dietaryTags        EmployeeDietaryTag[]
+
+  @@unique([id, companyId])
+  @@unique([companyId, email])
+  @@index([companyId, active])
+}
+
+model EmployeeAllergen {
+  employeeId  String         @db.Uuid
+  referenceId String         @db.Uuid
+  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([employeeId, referenceId])
+}
+
+model EmployeeDietaryTag {
+  employeeId  String         @db.Uuid
+  referenceId String         @db.Uuid
+  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  reference   ReferenceValue @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([employeeId, referenceId])
+}
+
+model CompanyHiddenCategory {
+  companyId  String   @db.Uuid
+  categoryId String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([companyId, categoryId])
+}
+
+model CompanyHiddenMenuItem {
+  companyId  String   @db.Uuid
+  menuItemId String   @db.Uuid
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  item       MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@id([companyId, menuItemId])
 }
 
 model Session {

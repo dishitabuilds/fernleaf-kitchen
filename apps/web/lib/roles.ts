@@ -6,7 +6,7 @@ export const roleDetails: Record<StaffRole, { label: string; href: string; title
   ADMIN: {
     label: 'Admin', href: '/dashboard', title: 'Operations overview',
     description: 'A clear view of the kitchen, from company orders to delivery and billing.',
-    phase: 1, next: 'Configure the catalogue, companies and pricing.',
+    phase: 2, next: 'Create orders with quotes, snapshots and cutoff processing.',
   },
   KITCHEN: {
     label: 'Kitchen', href: '/kitchen', title: 'Kitchen workspace',

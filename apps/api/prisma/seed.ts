@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { seedUsers } from './seed-users';
+import { seedConfiguration } from './seed-configuration';
 
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
@@ -9,7 +10,8 @@ async function main(): Promise<void> {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString, connectionTimeoutMillis: 5_000 }) });
   try {
     await seedUsers(prisma);
-    console.log('Four demo accounts are present. Existing accounts were preserved.');
+    await seedConfiguration(prisma);
+    console.log('Demo staff and Phase 1 configuration are present. Existing records were preserved.');
   } finally {
     await prisma.$disconnect();
   }

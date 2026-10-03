@@ -23,6 +23,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 export interface StaffIdentity { id: string; email: string; displayName: string; role: Role }
 export interface SessionResponse { user: StaffIdentity; permissions: Permission[]; csrfToken: string; expiresAt: string }
 export interface LoginRequest { email: string; password: string }
-export interface SettingsResponse { timezone: 'Asia/Kolkata'; currency: 'USD'; phase: 0 }
+export * from './configuration';
+export * from './catalogue';
 export interface HealthResponse { status: 'ok'; database: 'connected'; service: 'fernleaf-api' }
 export interface ApiError { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string }

@@ -10,6 +10,7 @@ import { PrismaClient } from '../../apps/api/src/generated/prisma/client';
 import { seedUsers } from '../../apps/api/prisma/seed-users';
 import { hashPassword } from '../../apps/api/src/modules/auth/password';
 import { hashSessionToken } from '../../apps/api/src/modules/auth/session-token';
+import { resetPhase1Fixture } from './fixtures';
 
 loadEnvironment({ path: resolve(__dirname, '../../apps/api/.env'), quiet: true });
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -34,9 +35,7 @@ describe('Phase 0 authentication and access using real PostgreSQL', () => {
 
   beforeEach(async () => {
     // The explicit _test database guard above keeps this isolated from review data.
-    await prisma.session.deleteMany();
-    await prisma.staffUser.deleteMany();
-    await seedUsers(prisma);
+    await resetPhase1Fixture(prisma);
   });
 
   afterAll(async () => {
@@ -127,7 +126,7 @@ describe('Phase 0 authentication and access using real PostgreSQL', () => {
   it('allows admin settings access only with valid origin and session-bound CSRF', async () => {
     const signedIn = await login();
     const settings = await request(app.getHttpServer()).get('/api/v1/settings').set('Cookie', signedIn.cookie).expect(200);
-    expect(settings.body).toEqual({ timezone: 'Asia/Kolkata', currency: 'USD', phase: 0 });
+    expect(settings.body).toMatchObject({ timezone: 'Asia/Kolkata', currency: 'USD', phase: 1, cutoffWorkingDays: 2, cutoffTime: '16:00', version: 1 });
     const missingCsrf = await request(app.getHttpServer()).post('/api/v1/settings/check-access')
       .set('Cookie', signedIn.cookie).set('Origin', WEB_ORIGIN).expect(403);
     expect(missingCsrf.body.code).toBe('CSRF_INVALID');

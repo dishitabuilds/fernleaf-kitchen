@@ -1,6 +1,6 @@
 # Architecture and lifecycle diagrams
 
-The authentication sequence describes Phase 0. The business ER, activity, state and data-flow diagrams are **planned blueprint models**. Only StaffUser and Session exist in the Phase 0 schema. See [README](../README.md) for evidence/status and the [blueprint](../Heizen-Implementation-Blueprint.md) for complete requirements.
+The authentication sequence remains implemented from Phase 0. The business ER, order activity/state and operational data-flow diagrams below are **planned blueprint models** for later phases. The schema now includes Phase 1 configuration; see [actual configuration architecture and diagrams](architecture.md), [README](../README.md) for evidence/status and the [blueprint](../Heizen-Implementation-Blueprint.md) for complete requirements.
 
 ## Phase 0 authentication and HTTP boundary
 
