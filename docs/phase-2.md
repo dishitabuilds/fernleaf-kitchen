@@ -32,7 +32,7 @@
 | `pnpm test:e2e`, production Chromium | **PASS: 20 / 20 tests, 37.6 seconds**, including four new order journeys and two manual-cutoff cases; non-kitchen browser timezone |
 | `docker build --file Dockerfile.api --tag fernleaf-api:phase2 .` | PASS, final registered production API |
 | Local production-mode container smoke | PASS, non-root node uid1000; migrations/real PostgreSQL, four role sessions/cookie flags/401/403, $89.60 quote/place/replay, stable purchase after catalogue change, atomic late confirmation with two prep units/drop/ordered events/replay, repeat manual processing, future rejection and logout revocation |
-| Phase completion commit/push and clean-checkout CI | Pending |
+| Phase completion commit/push and clean-checkout CI | PASS: `917143c8ce40ecf96fb544631506dcecfe6cab48` pushed to public `main`, full remote hash matched; [clean-checkout CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37150985847) passed in 2m11s |
 | Hosted HTTPS browser/database/scheduler checks | Blocked: hosting access pending, no live URL |
 
 The 118 tests include 14 combination cases, 15 cutoff/database cases and 24 order cases, plus earlier auth/configuration/money/menu/pricing regressions. Coverage includes the six $8.80/four $9.20 example, canonical merge/cardinality/sum/MOQ/errors/overflow; snapshot stability after catalogue/group replacement and employee transfer; direct permissions/Origin/CSRF/employee flags; versions/action replay/races; exact cutoff lock, repeat/concurrent confirmation/cancellation, drop keys/same-company constraints, rollback, catch-up, settings recomputation/frozen dates, calendar conflicts, filters/pagination and strict timeline chronology.
@@ -70,4 +70,6 @@ No kitchen-board start/done/readiness actions, dispatch/Driver journey, invoice 
 
 ## Publication checkpoint
 
-Local Phase 2 gate is verified. Completion commit/push/clean-checkout CI are pending at this pre-commit documentation checkpoint; record actual hashes/run evidence after publication. Development API/web were restarted; direct/proxied PostgreSQL health, login and `/orders/new` return 200. Report Phase 2, then stop before Phase 3: preparation/readiness/risk, grouped dispatch and mobile own-today Driver delivery. Preserve all existing data and retain the hosted/source blockers.
+Local Phase 2 gate is verified. Completion commit [`917143c`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/917143c8ce40ecf96fb544631506dcecfe6cab48) was pushed to public `origin/main`; full remote hash `917143c8ce40ecf96fb544631506dcecfe6cab48` matched. [Clean-checkout Phase checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37150985847) passed in 2m11s: frozen install, Prisma/migrations, lint/types, full backend suite, production build, separate browser demo database and complete Chromium suite. This documentation follow-up records the verified code publication; later documentation hashes are available through `git log`.
+
+Development API/web were restarted; direct/proxied PostgreSQL health, login and `/orders/new` return 200. Report Phase 2, then stop before Phase 3: preparation/readiness/risk, grouped dispatch and mobile own-today Driver delivery. Preserve all existing data and retain the hosted/source blockers.
