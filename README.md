@@ -17,10 +17,10 @@ The user authorised normal phase commits/pushes and creation of this project's G
 | Delivery record | Status |
 | --- | --- |
 | GitHub URL / visibility | [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), verified public |
-| Branch / phase commit / verified push | `main`; Phase 0 commit [`d8aa0b6`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/d8aa0b66f448ae83c71d3084a4164d505fbb21b1) was pushed and verified on 3 October 2026. Phase 1 commit/push pending final checks. |
+| Branch / phase commit / verified push | `main`; Phase 1 commit [`a44792c`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/a44792cf849bce22cfd42c4095c2c3ac141ab891) pushed on 3 October 2026; its full hash matched remote `main` after push. A following documentation commit records this evidence. |
 | Web / API live URLs | Not deployed; hosting access pending |
 | Local checks | Phase 1 gate PASS: missing/hidden menu items, exact derivation and company/owner/domain rules verified; complete evidence below |
-| GitHub Actions | [Phase checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37113060316) **PASS** for `d8aa0b6`: clean Linux install, lint, type-check, PostgreSQL tests, builds and browser checks |
+| GitHub Actions | [Phase 1 checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865) **PASS** for `a44792c`: frozen-lockfile clean Linux install, lint, types, PostgreSQL migrations/tests, production builds, seed and browser tests |
 
 ## Scope and four roles
 
@@ -57,7 +57,7 @@ node --version
 pnpm --version
 ```
 
-The implementation workstation used an ignored temporary pnpm tool cache; the project does not assume pnpm was installed globally there. Reviewers should use the normal installation above.
+The implementation workstation used an ignored temporary pnpm tool cache; pnpm is not installed globally there. In this existing workspace, `./.tooling/node_modules/.bin/pnpm.cmd dev` runs the development command directly. Reviewers on a fresh checkout should use the normal installation above.
 
 From the repository root in PowerShell:
 
@@ -284,7 +284,7 @@ Numbers follow the blueprint's PDF mapping; original-source verification is pend
 | 4.10 Settings | Must / 0, 1 | Locally verified | Kitchen calendar/cutoff/default tier/risk/references and cutoff preview; version/race/browser and cross-timezone checks pass |
 | 4.11 Dashboards | Must / 4 | Role shells; definitions above | Real aggregates and filtered-record reconciliation |
 | Non-functional rules | Must / every phase; 5 gate | Auth and Phase 1 access/domain/concurrency checks pass | 65 backend/rule and 14 browser tests pass; combination/order/invoice/400-order evidence later |
-| Submission/review | Must / 0, 5, 7 | Public repo verified; deployment files prepared | Commit/push pending; hosting/live smoke, sources/form, rolling fixtures and 14-day availability open |
+| Submission/review | Must / 0, 5, 7 | Public repo, Phase 1 push and CI verified; deployment files prepared | Hosting/live smoke, sources/form, rolling fixtures and 14-day availability open |
 
 Later scope is deferred by the authorised phase boundary, not waived; no Must was downgraded. Optional saved filters, shortcuts and decorative visuals wait until Must workflows/tests pass.
 
@@ -348,7 +348,7 @@ Final Phase 1 local evidence:
 | `pnpm test:e2e` Phase 1 | PASS; **14 Chromium tests in 19.6 seconds**, exit 0: 10 authentication/access regression cases and four complete Admin configuration workflows. Final four-flow rerun after group-ID preservation also PASS in 15.1 seconds with browser timezone America/Los_Angeles. |
 | `docker build --file Dockerfile.api --tag fernleaf-api:phase1 .` | PASS; current API deployment image generates Prisma and compiles contracts/API |
 | Phase 1 local production-mode container | PASS; non-root user, committed migrations, PostgreSQL health, four logins, production cookie attributes, anonymous 401/non-Admin 403, persisted settings/menu and logout. Explicit local HTTP cookie client; hosted HTTPS browser behaviour remains unverified. Temporary API container stopped; PostgreSQL retained. |
-| Phase 1 GitHub CI/commit/push | Pending phase commit/push; all local acceptance checks have passed |
+| Phase 1 GitHub CI/commit/push | Phase commit `a44792c` pushed to `main`; full hash matched the remote after push. Clean-checkout [CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865) **PASS** on Ubuntu/Node 24.10.0. |
 | Hosted smoke checks | Blocked by pending hosting access; not run |
 
 [Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
@@ -393,7 +393,7 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Phase 1 implementation and its local acceptance gate are verified. The phase completion commit/push and GitHub CI verification are the remaining synchronization steps at this pre-commit checkpoint. Local checks pass: lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API image/container smoke. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned.
+Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` is pushed to verified public `dishitabuilds/fernleaf-kitchen` on `main`; its full hash matched the remote after push and clean-checkout CI passed. Local checks pass: lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the API image/container smoke. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned. The following documentation commit records the verified phase result; use `git log` for the latest documentation hash.
 
 Hosting access remains the precise deployed-gate blocker; configure the prepared services and run deployed sign-in, unauthorized-access and production-database checks when access is available. The original assignment PDF/submission instructions remain missing. There is no live URL or deployment claim.
 
