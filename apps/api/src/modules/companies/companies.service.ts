@@ -4,7 +4,7 @@ import { ApiError } from '../../common/api-error';
 import { serializable, translateDatabaseError } from '../../common/transaction';
 import { PrismaService } from '../../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
-import { assertCalendar, assertLocalTime } from '../../domain/calendar';
+import { assertCalendar, assertLocalTime, isDeliveryDateAllowed } from '../../domain/calendar';
 import { AddressPatchDto, CompanyCreateDto, CompanyPatchDto, ListDto } from './configuration.dto';
 import { normalizeCompanyDomain, rejectUnexpectedNulls, requiredString, requiredVersion } from './configuration.validation';
 
@@ -86,7 +86,14 @@ export class CompaniesService {
         const company = await tx.company.findUnique({ where: { id } });
         if (!company) throw new ApiError(404, 'COMPANY_NOT_FOUND', 'This company does not exist.');
         if (company.version !== version) throw new ApiError(409, 'STALE_VERSION', 'The company changed. Reload before saving.');
-        assertCalendar({ workingDays: dto.workingDays ?? company.workingDays, holidays: dto.holidays ?? company.holidays });
+        const calendar = { workingDays: dto.workingDays ?? company.workingDays, holidays: dto.holidays ?? company.holidays };
+        assertCalendar(calendar);
+        if (dto.workingDays !== undefined || dto.holidays !== undefined) {
+          const orders = await tx.order.findMany({ where: { companyId: id, status: { in: ['DRAFT', 'PLACED', 'CONFIRMED'] } },
+            select: { id: true, number: true, deliveryDate: true, status: true }, orderBy: [{ number: 'asc' }] });
+          const affected = orders.filter((order) => !isDeliveryDateAllowed(order.deliveryDate, calendar));
+          if (affected.length) throw new ApiError(409, 'CALENDAR_HAS_LIVE_ORDERS', 'Resolve these live orders before making their delivery dates unavailable.', undefined, { orders: affected });
+        }
         if (dto.deliveryTime !== undefined) assertLocalTime(dto.deliveryTime);
         await this.validateDefaults(tx, fields);
         if (dto.ownerEmployeeId) {

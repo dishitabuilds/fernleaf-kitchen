@@ -92,6 +92,9 @@ test('Admin bulk pricing uses server derivation, exact explicit amounts and miss
   await form.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(form).toHaveCount(0);
   await page.getByLabel('Price tier', { exact: true }).selectOption({ label });
+  const matrixFilter = page.getByRole('form', { name: 'Filter price matrix', exact: true });
+  await matrixFilter.getByLabel('Search items', { exact: true }).fill('Roasted vegetable rice box');
+  await matrixFilter.getByRole('button', { name: 'Search', exact: true }).click();
   const rice = page.getByRole('row').filter({ has: page.getByText('Roasted vegetable rice box', { exact: true }) });
   await expect(rice).toContainText('$2.15');
   await page.getByLabel('Override for Roasted vegetable rice box', { exact: true }).fill('2.11');
@@ -121,7 +124,7 @@ test('Company owner, hidden items, missing prices and secret links agree with em
   await page.getByLabel('Employee', { exact: true }).selectOption(owner.id);
   await expect(page.getByRole('heading', { name: 'Roasted vegetable rice box', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Seasonal soup/ })).toHaveCount(0);
-  await expect(page.getByText(/Dish has no price in the selected tier/)).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: /^Seasonal soup.*: Dish has no price in the selected tier$/ })).toBeVisible();
   const secretLink = page.getByRole('link', { name: /Preview Chef/ });
   await expect(secretLink).toBeVisible();
   await secretLink.click();

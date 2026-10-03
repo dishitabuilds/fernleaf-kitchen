@@ -6,9 +6,11 @@ The mandated stack is **Next.js + NestJS + Prisma**. This repository uses TypeSc
 
 ## Current progress and sources
 
-**Phase 1 configuration and the final concurrency fix are implemented and locally verified.** It adds exact money/calendar rules, catalogue/options/groups, reference administration, menus and employee previews, tiers and a bulk price matrix, companies/addresses/domains, employees/transfers, and persisted editable kitchen settings. After adding retry backoff, lint, type-check, 65 backend/rule tests, 14 browser tests, production builds and the rebuilt API container smoke all pass. See [Phase 1 evidence and rules](docs/phase-1.md). Final GitHub synchronization/CI is recorded separately below.
+**Phase 2 implementation and local acceptance are verified.** Admin can save/edit drafts, review/accept server quotes, place/revise orders, inspect immutable purchases/timeline, filter lists and perform reasoned exceptions. Shared automatic/manual cutoff cancels Drafts and confirms Placed orders exactly once, creating pending prep units and grouped drops. The real backend passes 118 tests and the production browser suite passes all 20 cases. Lint/types/build and final API image/container checks pass. Phase 3 operational workflows are next; hosting remains pending. See [Phase 2 evidence](docs/phase-2.md) and the publication checkpoint below.
 
-Phase 0's authentication/HTTP/database foundation was verified locally, including four role accounts, 20 backend tests, 10 browser tests and the API Docker smoke. Its hosted gate remains **blocked by pending Vercel/Railway access**. Role landing pages still do not implement operational dashboards. Orders, fulfilment and billing remain later phases.
+Phase 1 configuration and its final concurrency fix remain implemented and locally verified. They include exact money/calendar rules, catalogue/options/groups, references, menus/previews, tiers/matrix, companies/addresses/domains, employees/transfers and kitchen settings. Its 65 backend/rule tests, 14 browser tests and production/container checks passed. See [Phase 1 evidence](docs/phase-1.md). Phase 2 regression results will be recorded separately.
+
+Phase 0's authentication/HTTP/database foundation was verified locally, including four role accounts, 20 backend tests, 10 browser tests and the API Docker smoke. Its hosted gate remains **blocked by pending Vercel/Railway access**. Role landing pages still do not implement operational dashboards. Orders are the current phase; fulfilment actions and billing remain later phases.
 
 The complete [Heizen-Implementation-Blueprint.md](Heizen-Implementation-Blueprint.md) was read before implementation. The original assignment PDF and submission email/screenshots are absent from this workspace and have **not** been checked. Requirement numbering, the 4 October 2026 11:59 PM IST deadline, public-repository requirement and submission method below come from the blueprint; comparison with the original sources remains pending. No attachment from another conversation is assumed accessible. [AGENTS.md](AGENTS.md) and [rules.md](rules.md) govern future work.
 
@@ -24,11 +26,11 @@ The user authorised normal phase commits/pushes and creation of this project's G
 
 ## Scope and four roles
 
-All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. The current request authorises Phase 1, with a report and stop before Phase 2.
+All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. The current request authorises Phase 2, with a report and stop before Phase 3. Unresolved business choices must be asked with options rather than assumed.
 
 | Role | Responsibility | Current surface |
 | --- | --- | --- |
-| Admin | Configure catalogue/pricing, companies/employees, staff/settings; manage orders, overrides and billing | Configuration CRUD forms, employee menu/secret-category preview, bulk pricing and editable settings; orders/staff/billing later |
+| Admin | Configure catalogue/pricing, companies/employees, staff/settings; manage orders, overrides and billing | Configuration and orders/quotes/snapshots/cutoffs/overrides locally verified; staff/billing later |
 | Kitchen | Prepare active confirmed orders and monitor readiness/risk | Authenticated Kitchen shell |
 | Dispatch | Assign drivers, check grouped-drop readiness and record departure | Authenticated Dispatch shell |
 | Driver | Read/complete own assigned drops for kitchen-local today | Authenticated Driver shell; deliveries are planned |
@@ -173,25 +175,30 @@ Current API routes all use `/api/v1`:
 | `/companies`, `/companies/:id/addresses`, `/companies/drivers` | Admin; company setup/updates, address maintenance and active Driver choices |
 | `/employees`, `/employees/:id/transfer` | Admin; employee configuration and atomic owner-aware transfers |
 | `/employees/:id/menu`, `/employees/:id/menu/categories/:categoryId` | Admin; authoritative normal/direct category previews applying visibility, prices and allergen guidance |
+| `GET /orders`, `GET /orders/:id` | Admin `orders.read`; server-filtered/paginated list and recorded purchase, current logistics, revisions and timeline |
+| `POST /orders/quote`, `POST /orders` | Admin `orders.create`; server estimate and action-key-protected Draft/Placed creation; placement needs the accepted current fingerprint |
+| `PATCH /orders/:id`, `POST /orders/:id/place`, `/cancel`, `/reject` | Admin `orders.manage`; versioned ordinary changes before cutoff, with accepted quote for placed purchases and reason for cancellation/rejection |
+| `POST /orders/override-create`, `POST /orders/:id/override` | Admin `orders.override`; explicit reasoned late placement, stored-draft placement, logistics correction or permitted cancellation/rejection |
+| `POST /cutoffs/process` | Admin; already-passed dates only, shared with startup/minute processing; returns confirmed/cancelled/skipped/failed counts and affected order IDs |
 | `POST /settings/check-access` | Admin `settings.manage`, exact origin and CSRF; returns `{allowed:true}` and writes no configuration |
 
-Undeclared route access policies fail closed. Future business capability names are already in the central map, but their declaration does not create those endpoints or implement resource ownership/date checks. Errors have `code`, `message`, optional `fieldErrors` and `requestId`; `X-Request-Id` identifies requests and API responses use `Cache-Control: no-store`.
+Undeclared route access policies fail closed. Future business capability names are already in the central map, but their declaration does not create those endpoints or implement resource ownership/date checks. Errors have `code`, `message`, optional `fieldErrors`, public `details` and `requestId`; `QUOTE_CHANGED` carries the replacement quote, while calendar conflicts identify affected orders. `X-Request-Id` identifies requests and API responses use `Cache-Control: no-store`.
 
 | Folder | Responsibility / status |
 | --- | --- |
-| `apps/web` | App Router, login, role landing pages, configuration forms and typed HTTP client |
-| `apps/api` | NestJS auth/access/health, catalogue/menu/pricing, companies/employees/settings and pure money/calendar rules |
-| `apps/api/prisma` | Staff/session and Phase 1 configuration schema, committed migrations and reviewer-safe seed |
+| `apps/web` | App Router, login, role landing pages, configuration and order forms, quote review, details/timeline and typed HTTP client |
+| `apps/api` | NestJS auth/access/health, configuration, orders/cutoffs and pure money/calendar/combination rules |
+| `apps/api/prisma` | Staff/configuration plus Phase 2 order/history/cutoff/prep/drop schema, additive migrations and reviewer-safe configuration seed |
 | `packages/contracts` | Public roles, permission identifiers, request/response contracts |
-| `tests/integration` | Auth/access, pure money/calendar rules, PostgreSQL configuration/menu/pricing/concurrency checks |
-| `tests/e2e` | Browser login/role/logout and configuration workflows through the HTTP rewrite |
+| `tests/integration` | Auth/access, money/calendar/combinations, real PostgreSQL configuration/order/cutoff/history/concurrency checks |
+| `tests/e2e` | Browser role/auth/configuration, draft/quote/place/history/exceptions and manual cutoff through the HTTP rewrite |
 | `scripts/dev.ps1` | Windows development launcher: validates setup, starts Compose PostgreSQL and runs API/web in the foreground |
-| `docs` | [Actual architecture](docs/architecture.md), [planned lifecycle diagrams](docs/diagrams.md), [Phase 1 rules/evidence](docs/phase-1.md) and [deployment runbook](docs/deployment.md) |
+| `docs` | [Architecture](docs/architecture.md), [lifecycle diagrams with status labels](docs/diagrams.md), [Phase 1 evidence](docs/phase-1.md), [Phase 2 work record](docs/phase-2.md) and [deployment runbook](docs/deployment.md) |
 | `Dockerfile.api`, `railway.json` | Repository-root API deployment foundation |
 
-Implemented modules: auth/access/health; catalogue/menu/pricing for visibility and prices; companies/employees for customer configuration; settings for references and kitchen policy; pure domain helpers for money, pricing and calendar calculations. Planned modules: orders for quotes/snapshots/lifecycle/timeline; kitchen for prep/readiness; dispatch for drops/driver actions; billing for invoices/payments/credits; jobs/demo for catch-up/rolling fixtures; dashboards for role-scoped aggregates. Controllers stay thin; database access remains in the API.
+Locally verified modules: auth/access/health, catalogue/menu/pricing, companies/employees, settings, orders and cutoffs. Phase 2 adds exact combinations, accepted server quotes, snapshots/lifecycle/timeline and shared due processing, with create/edit/list/detail/actions over HTTP. Planned modules: kitchen for prep/readiness actions; dispatch for drop/driver actions; billing for invoices/payments/credits; demo for rolling fixtures; dashboards for role-scoped aggregates. Controllers stay thin; database access remains in the API.
 
-## Actual data model through Phase 1
+## Actual data model and Phase 2 additions
 
 Staff identities log in; company employees remain separate customer records without credentials. The diagram shows the implemented schema's important relationships; [architecture details](docs/architecture.md) cover join tables and constraints.
 
@@ -218,13 +225,26 @@ erDiagram
     OPTION ||--o{ OPTION_TIER_PRICE : has
     REFERENCE_VALUE o|--o{ DISH : station
     REFERENCE_VALUE o|--o{ COMPANY : packaging
+    COMPANY ||--o{ ORDER : captured_billing_company
+    EMPLOYEE ||--o{ ORDER : historical_employee
+    DELIVERY_DATE_CUTOFF ||--o{ ORDER : locks_delivery_date
+    ORDER ||--o{ ORDER_LINE : contains
+    ORDER_LINE ||--|{ ORDER_COMBINATION : splits_into
+    ORDER_COMBINATION ||--o{ SELECTION_SNAPSHOT : records
+    ORDER_COMBINATION ||--o| PREP_UNIT : produces_on_confirmation
+    ORDER ||--o{ ORDER_REVISION : immutable_purchase_history
+    ORDER ||--o{ ORDER_EVENT : immutable_timeline
+    ORDER ||--o{ ORDER_ACTION : deduplicates_commands
+    COMPANY ||--o{ DELIVERY_DROP : receives
+    DELIVERY_DROP o|--o{ ORDER : same_company_membership
+    STAFF_USER o|--o{ DELIVERY_DROP : assigned_driver
 ```
 
 Each account has one role. Normalized email is unique. Both IDs are UUIDs. Only the SHA256 hash of a random opaque cookie token is stored. Sessions have indexes on user/expiry and cascade when their staff user is deleted. Staff has creation/update timestamps; sessions have creation/expiry timestamps. Expiry, current role and active status are checked on protected requests; logout revokes the session. The final migration/schema is authoritative.
 
 Phase 1 enforces one non-null company per employee, normalized unique company domains/SKUs, one explicit price per item/tier and a single settings/default-tier relationship. Composite foreign keys require company owners/default addresses to belong to that company. Employee email is normalized and unique within its company. Company creation inserts its first owner/address in one transaction; transfers replace an outgoing owner first and roll back on target-email conflicts. Calendar arrays use weekdays `0=Sunday` through `6=Saturday` and local-date holidays; API validation checks real dates and unique days. References have one kind and retire through `active` flags, retaining existing joins.
 
-Orders, prep units, drops, invoices and rolling fixture tables are **not implemented**. Their snapshots, grouping and uniqueness guarantees remain [planned lifecycle diagrams](docs/diagrams.md), with current configuration sequences in [actual architecture](docs/architecture.md).
+Two additive Phase 2 migrations contain orders, combinations, purchase/history/action records, cutoff policy dates, pending prep units and grouped drops. An order retains its original company independently of the employee's current company. Historical option/group IDs have no live-group foreign key, so replacing a catalogue group cannot erase a purchase. Immutable revision/event records have update protection; an insertion sequence resolves equal-timestamp timeline ordering. Actor/action keys deduplicate retries, and a composite drop foreign key enforces same-company membership. Backend and builder/browser gates pass. Prep/dispatch/driver actions, invoices and rolling fixtures remain later phases. See [current architecture](docs/architecture.md), [lifecycle diagrams](docs/diagrams.md) and [Phase 2 evidence](docs/phase-2.md).
 
 ## Decisions and preserved business rules
 
@@ -235,25 +255,25 @@ Orders, prep units, drops, invoices and rolling fixture tables are **not impleme
 | CSRF | Exact mutation origin plus CSRF token. CORS alone is insufficient. Login and authenticated mutation policies need direct HTTP evidence. |
 | Permissions | Central capability map enforced by NestJS against current role. Hidden buttons are presentation. Driver ownership/current-date policies follow with real drops. |
 | Frontend | HTTP rewrite keeps same-origin cookies and the required Next-to-Nest boundary. Typed forms fetch/save through NestJS and report server validation errors. |
-| Money — implemented Phase 1 | USD integer cents bounded to PostgreSQL Int, exact BigInt/rational intermediates. Derived unit prices round upward to five cents; explicit overrides retain entered cents, including zero. Order/invoice reconciliation follows in later phases. |
-| Time — implemented helpers/settings | Asia/Kolkata calendar dates/today/cutoff previews; UTC instants; injectable clock. Automatic/manual cutoff processing and order locks follow in Phase 2. |
-| Snapshots — planned Phase 2 | Placement freezes purchase/company/delivery values; edits/transfers cannot rewrite history. Placed revisions require accepting a fresh quote. |
-| Transactions — configuration implemented | Company/setup/transfer/reference/pricing/settings writes use short serializable transactions with up to three attempts for serialization conflicts. Company/settings versions reject stale saves with 409. Future cutoff/readiness/invoice races need their own checks. |
+| Money — implemented | USD integer cents bounded to PostgreSQL Int, exact BigInt/rational intermediates. Derived unit prices round upward to five cents; explicit overrides retain entered cents, including zero. Order combinations/lines/totals reconcile exactly; invoice reconciliation follows Phase 4. |
+| Time — implemented | Asia/Kolkata dates/cutoffs and UTC instants; injectable real clock. Scheduled/startup/manual processing share a due-only workflow. Ordinary actions lock at `now >= cutoffAt` even before a job runs. Processed date policies stay frozen. |
+| Snapshots — implemented | Placement freezes company, delivery, dish, option and price values. Fresh accepted quotes create immutable placed revisions. User-confirmed transfers block purchase edits; logistics corrections preserve the purchase. |
+| Transactions — implemented through orders/cutoffs | Short serializable writes retry serialization conflicts up to three attempts; versions reject stale saves. Actor-scoped action IDs replay the committed response and reject reuse with different input. Confirmation creates state, unique work, drop membership and timeline atomically. Readiness/invoice races follow Phase 3/4. |
 | Company ownership and references | Composite owner/address foreign keys require same-company membership. Active owners/default addresses cannot retire before replacement. Reference kinds are checked on writes; active packaging/station usage blocks retirement. |
 | Seed preservation | Four missing staff accounts are inserted without resetting edited accounts. Configuration installs once in one transaction when settings is absent; later seed runs preserve edits and deliberately removed prices/groups/domains. |
 | Hosting | Vercel web + Railway API/PostgreSQL, repository-root API Docker build. Access pending; no paid purchase, deployment or hiring-form submission claimed. |
 
-Pricing, menu/configuration and cutoff calculation below are **implemented in Phase 1**. Order combinations, processing, snapshots, fulfilment and billing remain planned for later phases:
+Pricing, configuration, combinations, quotes/snapshots, lifecycle and cutoff processing are locally verified, including real browser order journeys. Kitchen/dispatch/driver transitions and billing below remain planned:
 
 - **Pricing:** choose company tier or default tier; explicit price wins within that tier, otherwise valid cost/reference derivation, otherwise missing. Missing company-tier items do not fall back to another tier. Reject reference cycles. For rational `N/D` cents, rounded derived cents = `5 * ceil(N / (5 * D))`: $2.11 → $2.15; $2.10 remains $2.10. Missing-price options are unavailable; hide dishes with no price or no priced option in a required group.
 - **Menu/configuration:** require active category/menu item/dish, company visibility and effective prices. Secret categories are absent from normal preview but have direct staff preview links applying the same restrictions. Ordered required/optional groups reuse options. Employee allergen matches appear as warnings; dietary preferences are guidance and do not automatically remove food. References include portion sizes before the Should portion workflow.
-- **Company/employee:** normalize domains with lowercase/IDNA, reject malformed and data-listed public providers, require at least one domain and enforce global domain uniqueness. A denylist does not verify domain ownership. Each employee belongs to one company, with normalized email unique within that company. Owner transfers require an active source-company replacement and roll back every change on failure. Address/time/packaging flags are stored now; enforcing them on order requests belongs to Phase 2.
-- **Combinations:** required groups select exactly one option, optional groups zero/one, per combination. Reject foreign-group/duplicate selections and non-positive/fractional quantities; canonical duplicate combinations merge. Combination quantities equal line quantity; duplicate dish lines cannot bypass minimum quantity. Six $8.80 meals and four $9.20 meals total $89.60, producing two prep units of six/four meals.
-- **Calendars/cutoff:** company calendar allows delivery dates. Count backwards from before delivery across kitchen working days/holidays only, then use kitchen cutoff time; zero days uses the delivery date. Wednesday 7 October 2026, two days, 16:00 → Monday 5 October 16:00; a kitchen Monday holiday shifts it to Friday 2 October if weekends are closed. Settings allow 0–30 cutoff working days and 0–1440 risk minutes. The helper identifies `now >= cutoffAt`; actual order editing/cancellation locks follow in Phase 2.
+- **Company/employee:** normalize domains with lowercase/IDNA, reject malformed and data-listed public providers, require at least one domain and enforce global domain uniqueness. A denylist does not verify domain ownership. Each employee belongs to one company, with normalized email unique within that company. Owner transfers require an active source-company replacement and roll back every change on failure. Order requests enforce employee address/time/packaging flags against company defaults. Ordinary addresses must be active saved company addresses; custom addresses require a separate reasoned Admin override.
+- **Combinations:** user-confirmed Option A requires exactly one option per required group and zero/one per optional group. Duplicate dish lines are rejected; enter variants as combinations on one line. Validation rejects foreign-group/duplicate selections and non-positive/fractional quantities, merges canonical duplicate combinations, enforces line totals/MOQ and checks overflow. Six $8.80 meals and four $9.20 meals total $89.60, producing two prep units of six/four meals upon confirmation.
+- **Calendars/cutoff:** company calendar allows delivery dates. Count backwards from before delivery across kitchen working days/holidays only, then use kitchen cutoff time; zero days uses the delivery date. Wednesday 7 October 2026, two days, 16:00 → Monday 5 October 16:00; a kitchen Monday holiday shifts it to Friday 2 October if weekends are closed. Settings allow 0–30 cutoff working days and 0–1440 risk minutes. Ordinary order editing/cancellation locks at `now >= cutoffAt`.
 - **Processing:** scheduled, startup catch-up and Admin/manual processing share an idempotent service. Due Draft cancels; due Placed confirms original amounts, creates unique work/drop membership and records events. Manual action rejects future cutoff. Policy changes cannot reopen processed dates; unprocessed policy changes recompute/catch up. Company-calendar edits cannot silently invalidate live orders.
-- **Kitchen:** only active Confirmed orders create work, one unit per distinct combination on a line. Pending → Started → Done; direct completion records both times. Earliest unit start is order start; all units must be Done for readiness, using latest completion. Planned dispatch readiness = delivery minus travel minutes; kitchen readiness = another 30 minutes earlier. Unfinished work is late after its planned time, at risk within a configurable 15 minutes, and an exception if timing is missing. Repeated transitions cannot duplicate work.
-- **Orders/drop states:** Draft, Placed, Confirmed, Delivered, Cancelled, Rejected are commercial states. Exact company, canonical actual address and delivery instant group drops, independent of employee/packaging. Drop progression: Awaiting kitchen → Kitchen ready → Dispatch ready → Out for delivery → Delivered. Departure requires driver; delivering atomically updates active members. Driver scope comes from session ID and current kitchen date. On-time = actual delivery ≤ departure-captured target; undelivered timing is unknown.
-- **Overrides:** explicit Admin action/reason/timeline. Before departure, address/time changes atomically regroup/recalculate readiness, preserving completed prep. After departure, corrections are drop-wide. Delivered history retains actual times and original target. Cancellation removes undelivered active work; delivered shortages become exceptions/credits.
+- **Kitchen:** Phase 2 creates work only for active Confirmed orders, one unit per distinct combination on a line, with planned dispatch readiness = delivery minus captured travel minutes and kitchen readiness another 30 minutes earlier. Phase 3 will implement Pending → Started → Done; direct completion records both times. Earliest unit start is order start; all units must be Done for readiness, using latest completion. Unfinished work is late after its planned time, at risk within the configured threshold, and an exception if timing is missing. Repeated transitions must not duplicate work.
+- **Orders/drop states:** Draft, Placed, Confirmed, Delivered, Cancelled, Rejected are commercial states; Delivered is a Phase 3 transition. Exact company, canonical actual address and delivery instant group drops, independent of employee/packaging. Phase 3 drop progression: Awaiting kitchen → Kitchen ready → Dispatch ready → Out for delivery → Delivered. Departure requires driver; delivering atomically updates active members. Driver scope comes from session ID and current kitchen date. On-time = actual delivery ≤ departure-captured target; undelivered timing is unknown.
+- **Overrides:** explicit Admin action/reason/timeline. The user confirmed new late placement with an accepted quote and immediate shared due confirmation. Employee transfers block further placed purchase edits while retaining original company/purchase, logistics corrections and permitted cancellation. Authored pre-departure address/time corrections regroup/recalculate readiness and preserve prep history. Departed-drop corrections are blocked until the Phase 3 drop-wide action exists; delivered shortages/credits follow in Phase 4.
 - **Billing:** currently Confirmed/Delivered orders without invoice are eligible; Cancelled/Rejected excluded from new invoices. Selected orders belong to one company and can be claimed once transactionally. Gross = original immutable order totals. Invoiced cancellation adds full internal credit; delivered shortage may add reasoned partial credit. Credits cannot exceed the order amount or duplicate on retry. Mark-paid records settlement of the current outstanding amount. Net due = gross − credits − payments; negative means company credit. Issued totals/membership and paid history stay historical after later credits.
 
 ## Exact dashboard definitions — planned Phase 4
@@ -282,21 +302,21 @@ Numbers follow the blueprint's PDF mapping; original-source verification is pend
 | Assignment area | Priority / phase | Current status | Verification / remaining gap |
 | --- | --- | --- | --- |
 | Accounts/access | Must / 0, 4 | Foundation implemented and locally verified | 20 PostgreSQL/API and 10 browser tests pass; staff CRUD/resource scoping later |
-| 4.1 Catalogue/references | Must / 1, 2 | Configuration locally verified | Fields/reusable groups/references/retirement API and browser checks pass; purchase snapshot stability follows Phase 2 |
+| 4.1 Catalogue/references | Must / 1, 2 | Locally verified | Fields/groups/references/retirement pass; Phase 2 purchase snapshots survive catalogue/group edits |
 | 4.1 Portions | Should / 6 | Deferred until Must gate | Complete group-wide size/surcharge matrix and snapshot tests |
 | 4.2 Menu | Must / 1 | Locally verified | Normal/direct previews apply activity/hiding/pricing/required options; API and browser checks pass |
 | 4.3 Pricing | Must / 1 | Locally verified | Exact tiers/matrix/overrides, no missing fallback, cycles and five-cent rounding; rule/API/browser/race checks pass |
 | 4.4 Companies | Must / 1 | Locally verified | Domains/addresses/billing/owner/defaults/calendars; FK/race/rollback and browser checks pass |
-| 4.5 Employees | Must / 1 | Configuration locally verified | One company/transfer/replacement owner/email/flags/allergy guidance; API/browser checks pass, ordinary order flag enforcement Phase 2 |
+| 4.5 Employees | Must / 1, 2 | Locally verified | One company/transfer/replacement owner/email/flags/allergy guidance; crafted order flag enforcement and stable original-company purchases pass |
 | 4.5 CSV import | Should / 6 | Deferred until Must gate | Partial success/row errors, duplicate policy and size limit |
-| 4.6 Orders/cutoff | Must / 2 | Not started | Quotes/snapshots/lifecycle/timeline, filters/pagination, jobs/overrides |
+| 4.6 Orders/cutoff | Must / 2 | Implemented and locally verified | Draft/place/edit/cancel/reject, combinations, accepted quotes/snapshots, shared cutoff, list/detail/timeline/filters/overrides; 24 order/15 cutoff/14 combination tests and six new browser cases pass |
 | 4.7 Kitchen | Must / 3 | Role shell only | Real units/board/risk/readiness, force-completion and races |
 | 4.8 Dispatch/Driver | Must / 3 | Role shells only | Exact groups, drivers/transitions, mobile own-today delivery/timing |
 | Delivery photo | Optional / 6 | Not started | Persistent storage if added; delivery works without photo |
 | 4.9 Billing | Must / 4 | Not started | Unique invoice claims/payments/credits, concurrency/reconciliation |
-| 4.10 Settings | Must / 0, 1 | Locally verified | Kitchen calendar/cutoff/default tier/risk/references and cutoff preview; version/race/browser and cross-timezone checks pass |
+| 4.10 Settings | Must / 0, 1, 2 | Locally verified | Kitchen policy/defaults/references/preview, unprocessed cutoff recomputation/catch-up and frozen processed policies; version/race/cross-timezone checks pass |
 | 4.11 Dashboards | Must / 4 | Role shells; definitions above | Real aggregates and filtered-record reconciliation |
-| Non-functional rules | Must / every phase; 5 gate | Auth and Phase 1 access/domain/concurrency checks pass | 65 backend/rule and 14 browser tests pass; combination/order/invoice/400-order evidence later |
+| Non-functional rules | Must / every phase; 5 gate | Auth/configuration/order/cutoff access and concurrency verified locally | 118 backend tests and 20 browser cases pass; fulfilment/invoice/400-order/hosted evidence remains Phase 3–5 |
 | Submission/review | Must / 0, 5, 7 | Public repo, Phase 1 push and CI verified; deployment files prepared | Hosting/live smoke, sources/form, rolling fixtures and 14-day availability open |
 
 Later scope is deferred by the authorised phase boundary, not waived; no Must was downgraded. Optional saved filters, shortcuts and decorative visuals wait until Must workflows/tests pass.
@@ -305,7 +325,7 @@ Later scope is deferred by the authorised phase boundary, not waived; no Must wa
 | --- | --- | --- |
 | 0 Foundation | Local implementation verified; hosted gate blocked | Deployed login, unauthorised API rejection and production database connection |
 | 1 Rules/configuration | Implemented and locally verified | PASS: missing/hidden items excluded, derived rounding correct, company/owner/domain rules enforced; lint/types/tests/browser/build/container pass |
-| 2 Orders/cutoff | Not started | Snapshots survive catalogue edits; cutoff confirms/cancels exactly once |
+| 2 Orders/cutoff | Implemented and locally verified | PASS: stable recorded purchases, exact repeated/concurrent confirmation and Draft cancellation, usable HTTP builder/detail/exception paths |
 | 3 Fulfilment/delivery | Not started | Valid cross-role journey and invalid/concurrent transitions cannot duplicate work |
 | 4 Billing/dashboards | Not started | Concurrent invoice requests cannot double-bill; figures reconcile to filtered records |
 | 5 Must release | Not started | All Must acceptance checks pass on deployed app, including access/current data/400-order board |
@@ -316,11 +336,11 @@ Later scope is deferred by the authorised phase boundary, not waived; no Must wa
 
 Explicit requirements as represented in the blueprint include four accounts/roles, Next/Nest/Prisma, all eleven Must areas, backend rules, immutable history, exact money, calendars, unique invoicing, current-day Driver data and two-week review availability. Compare those to the original assignment/email when supplied.
 
-Our choices: PostgreSQL/pnpm/TypeScript; opaque sessions instead of JWT; USD from dollar examples; Asia/Kolkata kitchen zone; exactly one selection in required groups, zero/one in optional groups; Admin authors configuration/orders/billing; 15-minute default risk threshold; public-provider domain denylist without ownership verification; normalized employee email unique within its company; calendar arrays instead of separate weekday/holiday tables; one generic typed reference table; allergies/preferences as warnings rather than automatic filtering; internal credits preserving issued invoices; drop-wide post-departure corrections; portion surcharges independent of tiers. Configuration choices through Phase 1 are implemented; order/billing/portion interpretations remain planned. Later deviations need reasons and evidence.
+Implemented choices through Phase 1: PostgreSQL/pnpm/TypeScript; opaque sessions; USD from dollar examples; Asia/Kolkata kitchen zone; Admin configuration; 15-minute default risk threshold; public-provider denylist without ownership verification; company-scoped normalized employee email; calendar arrays; typed reference table; allergy/preference guidance as warnings. Phase 2 user-confirmed choices: reasoned late placement with accepted quote/immediate due confirmation; transfer-blocked placed purchase editing; exactly one option per required group and zero/one per optional group; duplicate dish lines rejected; ordinary saved company addresses, with custom addresses requiring a separate reasoned Admin override. These are our confirmed interpretations, not additional wording attributed to the missing assignment PDF. Internal billing credits, drop-wide departed corrections and tier-independent portion surcharges remain later-phase interpretations. Changes need documented reasons and evidence.
 
 ## Tests and actual evidence
 
-Results recorded on 3 October 2026. The first table preserves the verified **Phase 0** baseline; it is not a claim that those same commands passed after Phase 1 changes. Current-phase evidence follows separately. No future business-rule test or deployment is counted as passed.
+Results recorded on 3–4 October 2026. The first table preserves the verified **Phase 0** baseline; it is not a claim that those same commands passed after later changes. Current-phase evidence follows separately. No future business-rule test or deployment is counted as passed.
 
 | Check | Evidence |
 | --- | --- |
@@ -365,7 +385,13 @@ Final Phase 1 local evidence:
 | Hosted smoke checks | Blocked by pending hosting access; not run |
 | Windows startup repair / Chrome check | PASS on 3 October 2026: `scripts/dev.ps1` starts healthy Compose PostgreSQL and the API/web servers using cached pnpm; direct and proxied health report a connected database and `/login` returns 200. In the user's Chrome, Admin sign-in, session persistence after refresh, saved Settings and the dashboard connection indicator pass. Launcher parsing, actionable missing-environment failure and location/PATH restoration pass; repository lint and diff checks pass. Development servers are deliberately left running for local review. The historical `e4f8ded` notification is fixed; [current main CI at `162cc75`](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117633051) passed all checks. |
 
-[Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
+[Phase 1 evidence](docs/phase-1.md) maps the configuration gate to tests. Phase 2 now verifies combinations/MOQ, stable purchases across catalogue edits/transfers, employee flags, order action/version races, repeated/concurrent cutoff and grouping. Remaining planned tests cover preparation readiness/risk and simultaneous final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery and atomic delivered-member updates. The Phase 5 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results; it has not run.
+
+Phase 2 final local gate on 4 October: both additive migrations passed on development and guarded test databases. `pnpm lint`, `pnpm typecheck` and `pnpm build` pass, with focused web lint/types after the final delivery-form fix. The full backend suite passes **118 tests / seven suites in 62.934 seconds** using real production registration and Option A, including 14 combination, 15 cutoff and 24 order API cases. `pnpm test:e2e` passes **all 20 Chromium cases in 37.6 seconds against production output**: existing auth/configuration plus draft editing/$89.60 placement/immutable history, changed-quote reacceptance, immediate late confirmation and transfer/logistics preserving address/packaging/billing; two manual-cutoff cases verify future rejection and repeated empty past processing. Order/configuration/cutoff browser tests use America/Los_Angeles. [Phase 2 evidence](docs/phase-2.md) records the gate, fixes and current publication status. No live deployment is claimed.
+
+The final `fernleaf-api:phase2` Docker build and local production-mode container smoke pass: non-root `node`, committed migrations/real PostgreSQL, four role sessions and production cookie flags, direct 401/403 checks, exact $89.60 quote/place/replay, immutable catalogue-edit purchase, atomic explicit late confirmation with two prep units/drop/ordered events, repeat manual processing and future rejection. This appends labelled synthetic fixtures without resetting reviewer data. Temporary container/environment copy were removed; no hosted HTTPS browser or published-image claim.
+
+The manual screen's two production cases supersede the earlier focused development check. Browser/container fixtures append labelled synthetic records without resetting existing work. A meaningful transfer regression caught asynchronous selectors clearing saved address/packaging; controlled values now retain them. Older configuration tests now search the intended paginated item and identify its exact diagnostic rather than assuming first-page placement or a single global missing-price message. Strict business assertions remain intact.
 
 ## Demo accounts and reviewer walkthrough
 
@@ -378,7 +404,7 @@ These intentionally public credentials are for synthetic staff only; the databas
 | Dispatch | `dispatch@test.com` | `Test@1234` |
 | Driver | `driver@test.com` | `Test@1234` |
 
-Run local setup, open the web app and sign in with each account in a fresh session. Check the correct landing page (Admin `/dashboard`, Kitchen `/kitchen`, Dispatch `/dispatch`, Driver `/today`), refresh to retain the session and sign out. The three operational roles currently have landing pages; there is no order/prep/delivery/invoice journey yet. Anonymous `/api/v1/auth/me` returns 401; non-Admin configuration HTTP requests return 403.
+Run local setup, open the web app and sign in with each account in a fresh session. Check the correct landing page (Admin `/dashboard`, Kitchen `/kitchen`, Dispatch `/dispatch`, Driver `/today`), refresh to retain the session and sign out. The three operational roles currently have landing pages; kitchen/dispatch/driver transitions and invoices follow Phase 3/4. Anonymous `/api/v1/auth/me` returns 401; non-Admin configuration and Admin order HTTP requests return 403.
 
 Phase 1 Admin walkthrough:
 
@@ -389,7 +415,18 @@ Phase 1 Admin walkthrough:
 5. Open **Employees** at `/employees`: configure allergy/preference guidance and delivery choice flags. Transfer an employee using the dedicated action; an owner requires a replacement from the source company. A conflicting normalized target email rolls back the transfer and replacement.
 6. Open **Settings** at `/settings`: edit kitchen working days, holidays, cutoff time/count, default tier and risk minutes; save and refresh. Preview 7 October 2026 with two days and 16:00: weekdays give 5 October 16:00 IST; adding the kitchen holiday 5 October gives 2 October 16:00 IST. A company's holiday affects delivery eligibility without shifting that cutoff. A stale browser save returns a reload-required conflict.
 
-The future journey is Admin quote/place → real passed-cutoff confirmation → Kitchen completion → Dispatch assignment/departure → Driver delivery → Admin invoice/payment/credit. **Manual past-cutoff processing is not implemented through Phase 1.** Phase 2 will add an Admin action selecting a delivery date whose kitchen cutoff has already passed, sharing the scheduler service and returning confirmed/cancelled/skipped/failed counts. It rejects future cutoff; reviewers will not need to change the clock. Current cutoff previews calculate dates without changing any order state.
+Phase 2 Admin walkthrough:
+
+1. Open **Orders → Create order**, select an active employee and delivery date with a future kitchen cutoff. Company defaults and employee choice flags control saved address, delivery time and packaging. Open a secret category preview explicitly if required; the same visibility/pricing restrictions apply.
+2. Add a dish and allocate its line quantity across combinations. Select one option in every required group and zero/one in optional groups. Options start unselected. For the six/four example, configure dish $8.00 with two grain options $0.80/$1.20, then enter six/four meals on one line: the server total is $89.60.
+3. **Save draft**, then use **Edit / place draft** to revise it. **Review server quote** shows current prices, delivery, cutoff and allergy guidance. Check **I accept this server quote** before placing. Input changes clear acceptance; a live price change replaces the quote and requires renewed acceptance. Saved Draft placement retains a successful save if placement must be retried.
+4. On the detail page inspect **Current delivery**, **Recorded purchase**, immutable revision history and **Progress timeline**. Change a catalogue price/name and reload: the recorded purchase stays unchanged. A permitted Placed purchase revision before cutoff requires a fresh accepted quote; employee transfer blocks further purchase edits while preserving original billing.
+5. Cancel/reject with a reason while permitted. Use a separate **Override delivery** action for reasoned logistics corrections, including a custom address. Corrections preserve purchased amounts and regroup Confirmed work before departure. Terminal purchases stay frozen; delivered billing adjustments follow Phase 4.
+6. To review a late purchase without changing the clock, create a new order for an allowed date whose cutoff is already passed, enable **Explicit Admin placement exception**, enter a reason, review/accept the quote and **Place with Admin exception**. It immediately returns Confirmed with unique prep units/drop and placement-before-confirmation events. A saved Draft exception places its stored choices; unsaved changes are discarded visibly.
+
+Manual past-cutoff instructions: open **Orders → Process passed cutoff**, choose a delivery date and preview its kitchen cutoff. Only an already-passed cutoff can be processed. The authenticated `POST /api/v1/cutoffs/process` returns confirmed/cancelled/skipped/failed counts and failed-order links; future processing returns `400 CUTOFF_NOT_PASSED`. Due Drafts cancel and due Placed orders confirm their recorded amounts exactly once. Startup catch-up/minute scans may already have processed them, so a repeat correctly reports skipped records; an empty eligible date reports zero transitions. The manual action shares the automatic processor. No clock change is required.
+
+The remaining full journey is Confirmed → Kitchen completion → Dispatch departure → Driver delivery → Admin invoice/payment/credit, implemented in Phase 3/4.
 
 The initial Phase 1 seed contains four staff accounts; Fernleaf Demo Labs with a seven-day company calendar, owner plus one employee and an address; three tiers (Standard/manual, Cost plus 15%, Company manual/missing); three dishes including unpriced soup and a secret dish; one reusable option/required group; normal/secret categories; packaging, stations, allergen/dietary/portion references and a public-domain denylist. The kitchen starts with Monday–Friday, no holidays, 16:00, two cutoff working days, Standard default and a 15-minute risk threshold. There are no operational orders/drops/invoices yet.
 
@@ -407,8 +444,16 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` and final retry fix `47279c3` are pushed, their full hashes matched remote `main` after each push, and final clean-checkout CI passed. The retry backoff and graph/post-race assertions pass 100 focused race pairs and the complete checks (65 backend/rule tests, 14 browser tests, lint/types/build and rebuilt API container smoke). Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned. Following documentation commits record the verified evidence; use `git log` for the latest documentation hash.
+**Phase 2 implementation and local gate are complete.** Read [Phase 2 evidence](docs/phase-2.md), inspect Git state and preserve existing records. Two additive migrations are applied to development and guarded `_test` databases. The 118 backend tests, 20 production browser cases, lint/types/build and final API image/container smoke pass. There are no Phase 3 board/driver transitions or invoices yet.
+
+Confirmed user decisions: (1) late Admin placement needs a reason and accepted server quote, with immediate shared due confirmation; (2) employee transfer blocks further Placed purchase edits, retaining original company/purchase and explicit logistics/cancellation actions; (3) Option A on 4 October: required exactly one/optional zero-or-one; reject duplicate dish lines; ordinary saved company addresses and reason-required custom-address Admin exceptions. These policies are implemented and verified. `rules.md` invariants 6/7 preserve the explicit choices.
+
+Publication checkpoint: local Phase 2 checks are verified; the phase completion commit, remote verification and clean-checkout CI are pending at this pre-commit documentation checkpoint. Update this record with actual GitHub evidence after publication. The hosted Phase 0 gate and original-source verification remain open.
+
+Order endpoints and `/orders`, `/orders/new`, `/orders/:id`, `/orders/:id/edit` are registered and browser verified. Development servers were restarted: direct/proxied PostgreSQL health, `/login` and `/orders/new` return 200. Restart local development when needed with `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\dev.ps1`; it checks setup and starts PostgreSQL/API/web without resetting data. Use `http://localhost:3000`, Admin `admin@test.com` / `Test@1234`, then **Orders**. Do not reset the development database to refresh scenarios.
+
+Phase 1's phase commit `a44792c` and final retry fix `47279c3` were pushed/remote verified with successful clean-checkout CI; [Phase 1 evidence](docs/phase-1.md) preserves its 65-test/14-browser baseline and 100 focused race pairs. Current diagrams now show implemented order/cutoff behavior and clearly planned fulfilment/billing actions. Use `git log` for current phase/documentation commits.
 
 Hosting access remains the precise deployed-gate blocker; configure the prepared services and run deployed sign-in, unauthorized-access and production-database checks when access is available. The original assignment PDF/submission instructions remain missing. There is no live URL or deployment claim.
 
-Stop after the Phase 1 report until another phase is authorised. **Phase 2 is next:** order drafts/placement, exact combinations/server quotes, immutable purchase/company/delivery snapshots, lifecycle/timeline/filtering and shared scheduled/startup/manual cutoff processing with explicit Admin overrides. Reuse the configuration/menu/pricing/calendar services and preserve the Phase 0 hosted gate until live checks pass. Fresh conversations should read rules/README, inspect Git state and consult relevant blueprint sections before editing.
+Stop after the requested Phase 2 report until another phase is authorised. **Next concrete task: Phase 3 kitchen → delivery.** Read blueprint sections 12–15, reuse recorded combinations and exact drop membership, implement the station board/start/complete/readiness/risk and reasoned force-completion, then driver assignment/dispatch steps/mobile own-today delivery. Verify one order across all roles, invalid transitions and concurrent final-unit/drop updates. Include packaging-only logistics/readiness behavior before adding dispatch actions. Preserve the Phase 0 hosted gate until live checks pass. Prioritize Must workflows for the 4 October 23:59 IST deadline; keep acceptance checks and phase pushes. Fresh conversations read rules/README, inspect Git and consult the relevant blueprint first.

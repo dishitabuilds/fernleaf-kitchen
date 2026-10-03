@@ -1,4 +1,6 @@
-# Implemented architecture through Phase 1
+# Architecture: configuration, orders and cutoff processing
+
+**Phase 2 is implemented and its local acceptance gate is verified.** It adds persisted orders/history/cutoffs/preparation/drop foundations, registered order HTTP services/controllers and the create/edit/list/detail/action UI under the user's confirmed Option A policy. On 4 October 2026 lint, type-check and production builds passed; the registered backend passed 118 tests across seven suites, and all 20 production-build Chromium tests passed, including four new order journeys and two manual-cutoff cases. The rebuilt Phase 2 API image also passed a local production-mode purchase/confirmation/replay smoke. [Phase 2 evidence](phase-2.md), the [deployment record](deployment.md) and README record checks and Git synchronization separately. Phase 3/4 remain planned. Phase 0's hosted gate is blocked by pending hosting access, and the original assignment PDF/submission instructions remain absent.
 
 The browser renders Next.js forms and calls relative `/api/v1` URLs. Next.js rewrites those requests over HTTP to NestJS. Authentication, permissions, validation, pricing, calendars and Prisma access belong to the backend. No Next.js page/server action accesses Prisma.
 
@@ -6,10 +8,15 @@ The browser renders Next.js forms and calls relative `/api/v1` URLs. Next.js rew
 flowchart LR
     Staff[Staff browser or driver phone] --> Web[Next.js forms and typed HTTP client]
     Web -->|same-origin /api/v1 HTTP rewrite| Guard[NestJS session and permission guard]
-    Guard --> Controllers[Validated configuration controllers]
+    Guard --> Controllers[Validated configuration and order controllers]
     Controllers --> Services[Catalogue, menu, pricing, companies, employees, settings]
+    Controllers --> Orders[Order quote and mutation services]
     Services --> Rules[Pure money, pricing and calendar functions]
+    Orders --> Rules
     Services --> Tx[Prisma transactions]
+    Orders --> Tx
+    Trigger[Startup / minute scheduler / Admin manual cutoff] --> Cutoff[Shared cutoff confirmation service]
+    Cutoff --> Tx
     Tx --> DB[(PostgreSQL)]
     Contracts[Public contracts and capabilities] -.-> Web
     Contracts -.-> Controllers
@@ -66,7 +73,7 @@ ReferenceValue uses an enum kind for allergens, dietary tags, kitchen stations, 
 
 Company and singleton KitchenSettings keep `workingDays` integer arrays (`0=Sunday` to `6=Saturday`) and `holidays` local-date arrays. This avoids extra lookup tables for a fixed seven-day week. Services validate unique days, at least one open day and real holiday dates. Settings fixes USD/Asia/Kolkata and references exactly one default tier. Company calendars determine delivery eligibility; only the kitchen calendar counts cutoff days.
 
-Orders, snapshots, cutoff processing records, prep units, delivery drops, invoices and rolling operational fixtures do not exist yet. Their future relationships/state machines remain in [planned diagrams](diagrams.md).
+Order snapshots, date-cutoff records, prep units and delivery-drop foundations now exist in the Phase 2 schema; see the model below. Invoices and rolling operational fixtures do not exist yet. Their future billing/operational relationships remain labelled planned in [lifecycle diagrams](diagrams.md).
 
 ## Atomic company setup and employee transfer
 
@@ -106,7 +113,7 @@ flowchart TB
     Unique -->|Yes| Commit[Commit transfer]
 ```
 
-Company/settings saves include the last-read version. Conditional updates increment it and reject stale saves with 409. Configuration writes use serializable isolation for at most three attempts. Serialization/deadlock conflicts roll back before asynchronous 20/40 ms backoff; a persistent conflict returns `409 CONCURRENT_CHANGE`. This gives a winning transaction time to commit without holding locks during the delay. PostgreSQL uniqueness/FKs provide a second guard. Menu previews and price matrix reads use Repeatable Read for coherent configuration reads. Future order/invoice/fulfilment concurrency still needs its own checks.
+Company/settings/order saves include the last-read version. Conditional updates increment it and reject stale saves with 409. Configuration and order writes use serializable isolation for at most three attempts. Serialization/deadlock conflicts roll back before asynchronous 20/40 ms backoff; a persistent conflict returns `409 CONCURRENT_CHANGE`. This gives a winning transaction time to commit without holding locks during the delay. PostgreSQL uniqueness/FKs provide a second guard. Menu previews, price matrix and order list/detail reads use Repeatable Read for coherent responses. Order action replay, version races and concurrent cutoff processing have focused PostgreSQL evidence; aggregate fulfilment/invoice concurrency remains later-phase work.
 
 ## Effective pricing and menu availability
 
@@ -134,4 +141,48 @@ flowchart TB
 
 Tier references must be acyclic, including concurrent cross-reference edits. Integer/rational arithmetic uses BigInt intermediates, then validates the final PostgreSQL Int amount. Missing selected-tier prices do not look up the kitchen default as a fallback. Explicit overrides are not nickel-rounded. Secret categories are omitted from normal navigation; direct staff preview evaluates the same visibility/pricing rules. Optional groups may have no available option; required groups cannot.
 
-These helpers/services are the foundation for Phase 2 quotes and snapshots. Phase 1 previews do not place orders, consume quantities or enforce employee flags on nonexistent order operations.
+Menu previews remain read-only configuration views. The Phase 2 order quote calls `MenuService.previewInTransaction` inside its own transaction, applying the same active/hiding/pricing/required-option rules. The registered quote policy follows the user's confirmed Option A: exactly one option per required group, zero or one per optional group, duplicate dish lines rejected, and canonical duplicate combinations merged within one line. Combination quantities must sum to the line quantity; MOQ applies to that line. Ordinary delivery addresses must be active saved addresses of the employee's company. A false address/time/packaging flag enforces the corresponding company default. Custom addresses and exceptions to these flags use a separate reason-required Admin override. The browser selects IDs/quantities and reviews the server quote; it cannot supply authoritative prices or bypass these checks.
+
+## Phase 2 persisted model and history boundaries
+
+```mermaid
+erDiagram
+    COMPANY ||--o{ ORDER : captured_billing_company
+    EMPLOYEE ||--o{ ORDER : purchased_for
+    DELIVERY_DATE_CUTOFF ||--o{ ORDER : kitchen_deadline
+    ORDER ||--o{ ORDER_LINE : contains
+    DISH ||--o{ ORDER_LINE : retained_identity
+    ORDER_LINE ||--|{ ORDER_COMBINATION : quantity_partition
+    ORDER_COMBINATION ||--o{ SELECTION_SNAPSHOT : purchased_choices
+    ORDER ||--o{ ORDER_REVISION : purchase_history
+    ORDER ||--o{ ORDER_EVENT : progress_timeline
+    ORDER ||--o{ ORDER_ACTION : replay_result
+    ORDER_COMBINATION ||--o| PREP_UNIT : unique_work
+    COMPANY ||--o{ DELIVERY_DROP : receives
+    DELIVERY_DROP o|--o{ ORDER : same_company_members
+    STAFF_USER o|--o{ DELIVERY_DROP : assigned_driver
+```
+
+Drafts can contain zero lines; a placed order requires valid purchased lines/combinations. An order captures company identity separately from its employee's current company. Employee transfer does not alter the order's original billing company or accepted purchase. OrderLine retains a restricted FK to Dish, but its dish name/description/SKU/station/allergen data and prices come from snapshots. `menuItemId` is a historical identifier without a live MenuItem FK. SelectionSnapshot's group/option/tier IDs and PrepUnit's station ID likewise identify purchased history without live choice/reference FKs. Catalogue group replacement therefore cannot erase selection history. Actor IDs in order actions/events/revisions and `createdById` are historical scalar IDs; events retain the actor name.
+
+Purchase JSON and typed line/combination/selection rows capture server-resolved prices, quantities and choice information. Accepted placed revisions append a unique `(orderId, version)` full snapshot; earlier revision snapshots stay unchanged. Current delivery logistics are stored separately from purchase snapshots. The detail UI displays **Current delivery** alongside **Recorded purchase**, and timeline entries can show before/after delivery corrections or kitchen cutoff changes in IST. OrderEvent has a unique increasing database sequence; ordering by timestamp then sequence preserves event order when placement and confirmation share the same millisecond. Database triggers reject updates to purchase revisions and events. Status checks require purchase/placement evidence for Placed/Confirmed/Delivered, the applicable confirmation/cancellation/rejection timestamp, positive versions/quantities, nonnegative money and exact combination multiplication. Post-transfer Placed purchase edits/requotes are rejected; explicit logistics corrections/cancellation stay available. The registered HTTP endpoints and builder have local API/browser evidence.
+
+Database uniqueness covers order number, one dish row per order, canonical combination per line, one prep unit per combination, actor/action ID, order/action-event key and order/revision version. Duplicate dish lines are rejected before writing; variants belong to that dish line's combinations. OrderAction stores a canonical payload hash and committed response: an identical actor/action retry replays its result; reusing its key for different input returns 409. Mutation response caching occurs inside the same transaction as purchase/history/confirmation effects. Mutations use expected order versions and serializable transactions with bounded retries.
+
+Each DeliveryDrop has globally unique `(companyId, canonical actual address key, exact deliveryAt)`. Address identity/label, employee and packaging do not determine grouping. Address fields normalize whitespace/case/Unicode before hashing; actual delivery timestamps include the date. The composite Order drop FK `(dropId, companyId)` references `(DeliveryDrop.id, companyId)`, structurally preventing cross-company membership. A default driver is copied only when the staff record remains active and has Driver role. Joining a departed/delivered drop is rejected. Driver departure/delivery actions are Phase 3 work.
+
+## Date policy and atomic confirmation
+
+DeliveryDateCutoff has one row per local delivery date, UTC `cutoffAt`, settings version, policy JSON and first/latest processing times. Its policy captures kitchen timezone, weekdays, holidays and cutoff time/day count. Authoring a quote ensures that date's record exists. For unprocessed dates, a settings transaction recalculates deadlines, updates affected Draft/Placed cutoff instants/versions and adds `CUTOFF_CHANGED` events. Catch-up runs after that transaction commits. Processed dates retain their original policy and cutoff; policy edits cannot reopen them.
+
+`processedAt` freezes policy; it does not certify that all orders were processed successfully. Every due-date retry scans the date's orders again. This finds newly added eligible records and recovers failed rows without duplicate effects. Manual processing rejects a future cutoff and returns confirmed/cancelled/skipped/failed counts plus failed order references. Startup catch-up and an approximately one-minute timer call the same service; an in-process running flag avoids overlapping local scans. The timer is disabled under `NODE_ENV=test`; startup catch-up is covered by the PostgreSQL suite. Hosted scheduling/live uptime remains unverified.
+
+The shared `confirmPlaced` transaction rechecks the order/date deadlines against the real clock, freezes date policy, conditionally changes an already-due Placed order to Confirmed, creates one pending prep unit per canonical purchased combination, attaches the exact grouped drop and adds the unique cutoff timeline event. Ordinary processing never recalculates purchase prices. Draft cancellation is conditional and records its reason/event. Per-order transactions isolate failures in a date scan; a failed order is reported for later retry. A reason-required **new late Admin placement**, or explicit late placement of an existing draft, uses this same helper immediately within its placement transaction after accepting the authoritative quote. The cached action response is therefore already Confirmed; any failure rolls back the purchase, confirmation and replay result together. A future delivery date before its cutoff remains Placed rather than being artificially confirmed.
+
+Explicit pre-departure delivery corrections keep company/billing/purchase amounts unchanged, recalculate planned readiness and move Confirmed membership between exact drops. Existing prep history is preserved. Confirmed cancellation clears drop membership while preserving historical preparation rows and actual timestamps; Phase 3 active-work reads must restrict parent orders to Confirmed. Company-calendar edits reject changes that would invalidate Draft/Placed/Confirmed delivery dates and return affected order links. Kitchen-board start/done/readiness transitions, dispatch progression and own-today Driver completion remain Phase 3; invoices/payments/credits remain Phase 4.
+
+## Implemented and locally verified HTTP/UI scope
+
+The registered order controller exposes list/detail, quote, Draft/Placed creation/update, place/cancel/reject and explicit Admin placement/delivery/cancellation/rejection exceptions. Each route declares backend capabilities; current order-management/read capabilities belong to Admin. Later operational roles receive scoped fulfilment data in Phase 3. List filters use delivery-date `from/to`, company, status, invoice membership, search and server pagination. The Phase 2 invoice model is absent, so an invoiced-only query has no matches. The independent Next.js list/detail/timeline/revision/action/manual-cutoff UI uses the HTTP rewrite, CSRF and preserved API error details. Company/calendar errors render links from `details.orders`.
+
+The builder at `/orders/new` and `/orders/:id/edit` chooses employee/company delivery defaults and menu combinations, preserves draft choices and reviews the authoritative quote before placement or a placed purchase revision. Editing inputs invalidates prior acceptance; a changed server quote must be reviewed again. Reason-required override mode makes custom-address/flag exceptions and late placement explicit. Lint/type-check/build and the complete 20-case production-build browser suite pass locally, alongside all 118 backend/rule tests and the API container smoke. README and [Phase 2 evidence](phase-2.md) record exact results, commit/push/CI and deployment status. [Sequence/activity/state diagrams](diagrams.md) distinguish these verified local order/cutoff workflows from planned fulfilment/billing work.

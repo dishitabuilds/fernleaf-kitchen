@@ -1,7 +1,7 @@
-type ErrorPayload = { message?: string; code?: string; requestId?: string; fieldErrors?: Record<string, string[]> };
+type ErrorPayload = { message?: string; code?: string; requestId?: string; fieldErrors?: Record<string, string[]>; details?: Record<string, unknown> };
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, public readonly code: string, message: string, public readonly fieldErrors?: Record<string, string[]>) {
+  constructor(public readonly status: number, public readonly code: string, message: string, public readonly fieldErrors?: Record<string, string[]>, public readonly details?: Record<string, unknown>, public readonly requestId?: string) {
     super(message);
     this.name = 'ApiError';
   }
@@ -26,7 +26,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   if (!response.ok) {
     if (response.status === 401 && typeof window !== 'undefined') window.dispatchEvent(new Event('fernleaf:session-expired'));
     const payload: ErrorPayload = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, payload.code ?? 'API_ERROR', payload.message ?? 'The request could not be completed. Please try again.', payload.fieldErrors);
+    throw new ApiError(response.status, payload.code ?? 'API_ERROR', payload.message ?? 'The request could not be completed. Please try again.', payload.fieldErrors, payload.details, payload.requestId);
   }
   if (response.status === 204 || response.headers.get('content-length') === '0') return undefined as T;
   return response.json() as Promise<T>;

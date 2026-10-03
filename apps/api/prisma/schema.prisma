@@ -16,16 +16,17 @@ enum StaffRole {
 }
 
 model StaffUser {
-  id                     String    @id @default(uuid()) @db.Uuid
-  email                  String    @unique @db.VarChar(254)
-  displayName            String    @db.VarChar(100)
-  passwordHash           String    @db.VarChar(255)
+  id                     String         @id @default(uuid()) @db.Uuid
+  email                  String         @unique @db.VarChar(254)
+  displayName            String         @db.VarChar(100)
+  passwordHash           String         @db.VarChar(255)
   role                   StaffRole
-  active                 Boolean   @default(true)
-  createdAt              DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime  @updatedAt @db.Timestamptz(3)
+  active                 Boolean        @default(true)
+  createdAt              DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime       @updatedAt @db.Timestamptz(3)
   sessions               Session[]
   defaultDriverCompanies Company[]
+  deliveryDrops          DeliveryDrop[]
 }
 
 enum ReferenceKind {
@@ -84,6 +85,7 @@ model Dish {
   groups      DishOptionGroup[]
   menuItems   MenuItem[]
   prices      DishTierPrice[]
+  orderLines  OrderLine[]
 }
 
 model Option {
@@ -260,6 +262,8 @@ model Company {
   employees          Employee[]              @relation("CompanyEmployees")
   hiddenCategories   CompanyHiddenCategory[]
   hiddenItems        CompanyHiddenMenuItem[]
+  orders             Order[]
+  deliveryDrops      DeliveryDrop[]
 
   @@unique([ownerEmployeeId, id])
   @@unique([defaultAddressId, id])
@@ -301,6 +305,7 @@ model Employee {
   canChangeTime      Boolean              @default(false)
   canChangePackaging Boolean              @default(false)
   ownerOfCompany     Company?             @relation("CompanyOwner")
+  orders             Order[]
   allergens          EmployeeAllergen[]
   dietaryTags        EmployeeDietaryTag[]
 
@@ -355,4 +360,226 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+enum OrderStatus {
+  DRAFT
+  PLACED
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+enum PrepStatus {
+  PENDING
+  STARTED
+  DONE
+}
+
+enum DropStatus {
+  AWAITING_KITCHEN
+  KITCHEN_READY
+  DISPATCH_READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+model DeliveryDateCutoff {
+  deliveryDate    String    @id @db.VarChar(10)
+  cutoffAt        DateTime  @db.Timestamptz(3)
+  settingsVersion Int
+  policySnapshot  Json
+  processedAt     DateTime? @db.Timestamptz(3)
+  lastProcessedAt DateTime? @db.Timestamptz(3)
+  orders          Order[]
+
+  @@index([cutoffAt, processedAt])
+}
+
+model Order {
+  id                     String             @id @default(uuid()) @db.Uuid
+  number                 Int                @unique @default(autoincrement())
+  employeeId             String             @db.Uuid
+  employee               Employee           @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  companyId              String             @db.Uuid
+  company                Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employeeName           String             @db.VarChar(150)
+  companyName            String             @db.VarChar(150)
+  employeeSnapshot       Json
+  companySnapshot        Json
+  deliveryDate           String             @db.VarChar(10)
+  cutoff                 DeliveryDateCutoff @relation(fields: [deliveryDate], references: [deliveryDate], onDelete: Restrict)
+  deliveryAt             DateTime           @db.Timestamptz(3)
+  cutoffAt               DateTime           @db.Timestamptz(3)
+  addressKey             String             @db.Char(64)
+  deliverySnapshot       Json
+  plannedDispatchReadyAt DateTime           @db.Timestamptz(3)
+  plannedKitchenReadyAt  DateTime           @db.Timestamptz(3)
+  input                  Json
+  purchaseSnapshot       Json?
+  totalMinor             Int?
+  status                 OrderStatus        @default(DRAFT)
+  version                Int                @default(1)
+  createdById            String             @db.Uuid
+  dropId                 String?            @db.Uuid
+  drop                   DeliveryDrop?      @relation(fields: [dropId, companyId], references: [id, companyId], onDelete: Restrict, onUpdate: NoAction)
+  placedAt               DateTime?          @db.Timestamptz(3)
+  confirmedAt            DateTime?          @db.Timestamptz(3)
+  cancelledAt            DateTime?          @db.Timestamptz(3)
+  rejectedAt             DateTime?          @db.Timestamptz(3)
+  deliveredAt            DateTime?          @db.Timestamptz(3)
+  kitchenStartedAt       DateTime?          @db.Timestamptz(3)
+  kitchenReadyAt         DateTime?          @db.Timestamptz(3)
+  createdAt              DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
+  lines                  OrderLine[]
+  events                 OrderEvent[]
+  revisions              OrderRevision[]
+  actions                OrderAction[]
+
+  @@index([deliveryDate, status, companyId])
+  @@index([status, cutoffAt])
+  @@index([companyId, status])
+  @@index([employeeId])
+  @@index([dropId])
+}
+
+model OrderLine {
+  id             String             @id @default(uuid()) @db.Uuid
+  orderId        String             @db.Uuid
+  order          Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId         String             @db.Uuid
+  dish           Dish               @relation(fields: [dishId], references: [id], onDelete: Restrict)
+  menuItemId     String             @db.Uuid
+  sortOrder      Int
+  quantity       Int
+  basePriceMinor Int
+  totalMinor     Int
+  dishSnapshot   Json
+  combinations   OrderCombination[]
+
+  @@unique([orderId, dishId])
+  @@index([orderId, sortOrder])
+}
+
+model OrderCombination {
+  id             String              @id @default(uuid()) @db.Uuid
+  lineId         String              @db.Uuid
+  line           OrderLine           @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  canonicalKey   String              @db.Char(64)
+  quantity       Int
+  unitPriceMinor Int
+  totalMinor     Int
+  selections     SelectionSnapshot[]
+  prepUnit       PrepUnit?
+
+  @@unique([lineId, canonicalKey])
+}
+
+// Group/option IDs are historical identifiers, deliberately independent of live
+// group rows, which catalogue administration may replace.
+model SelectionSnapshot {
+  id            String           @id @default(uuid()) @db.Uuid
+  combinationId String           @db.Uuid
+  combination   OrderCombination @relation(fields: [combinationId], references: [id], onDelete: Cascade)
+  groupId       String           @db.Uuid
+  groupName     String           @db.VarChar(150)
+  optionId      String           @db.Uuid
+  optionName    String           @db.VarChar(150)
+  priceMinor    Int
+  priceSource   String           @db.VarChar(20)
+  tierId        String           @db.Uuid
+  sortOrder     Int
+  allergens     Json
+  dietaryTags   Json
+
+  @@index([combinationId, sortOrder])
+}
+
+model OrderRevision {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @db.Uuid
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  version   Int
+  snapshot  Json
+  actorId   String   @db.Uuid
+  reason    String?  @db.VarChar(2000)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([orderId, version])
+}
+
+model OrderEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  sequence  Int      @unique @default(autoincrement())
+  orderId   String   @db.Uuid
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actionKey String   @db.VarChar(160)
+  type      String   @db.VarChar(40)
+  actorId   String?  @db.Uuid
+  actorName String   @db.VarChar(150)
+  reason    String?  @db.VarChar(2000)
+  details   Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([orderId, actionKey])
+  @@index([orderId, createdAt])
+}
+
+model OrderAction {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String   @db.Uuid
+  key         String   @db.VarChar(100)
+  payloadHash String   @db.Char(64)
+  orderId     String   @db.Uuid
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  result      Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([actorId, key])
+}
+
+// Phase 2 creates pending work and drop membership at confirmation. Their
+// operational board/actions are implemented in Phase 3.
+model PrepUnit {
+  id            String           @id @default(uuid()) @db.Uuid
+  combinationId String           @unique @db.Uuid
+  combination   OrderCombination @relation(fields: [combinationId], references: [id], onDelete: Cascade)
+  stationId     String?          @db.Uuid
+  stationName   String?          @db.VarChar(254)
+  status        PrepStatus       @default(PENDING)
+  startedAt     DateTime?        @db.Timestamptz(3)
+  doneAt        DateTime?        @db.Timestamptz(3)
+
+  @@index([stationId, status])
+}
+
+model DeliveryDrop {
+  id                 String     @id @default(uuid()) @db.Uuid
+  companyId          String     @db.Uuid
+  company            Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  deliveryDate       String     @db.VarChar(10)
+  deliveryAt         DateTime   @db.Timestamptz(3)
+  addressKey         String     @db.Char(64)
+  addressSnapshot    Json
+  driverInstructions String     @db.VarChar(2000)
+  driverId           String?    @db.Uuid
+  driver             StaffUser? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  status             DropStatus @default(AWAITING_KITCHEN)
+  version            Int        @default(1)
+  dispatchReadyAt    DateTime?  @db.Timestamptz(3)
+  departedAt         DateTime?  @db.Timestamptz(3)
+  deliveredAt        DateTime?  @db.Timestamptz(3)
+  targetAtDeparture  DateTime?  @db.Timestamptz(3)
+  onTime             Boolean?
+  note               String?    @db.VarChar(2000)
+  createdAt          DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime   @updatedAt @db.Timestamptz(3)
+  orders             Order[]
+
+  @@unique([companyId, addressKey, deliveryAt])
+  @@unique([id, companyId])
+  @@index([driverId, deliveryDate, status])
+  @@index([deliveryDate, status])
 }

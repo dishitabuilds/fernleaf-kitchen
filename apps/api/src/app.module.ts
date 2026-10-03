@@ -21,16 +21,25 @@ import { PricingService } from './modules/pricing/pricing.service';
 import { MenuController } from './modules/menu/menu.controller';
 import { MenuService } from './modules/menu/menu.service';
 import { Clock } from './common/clock';
+import { CutoffsController } from './modules/cutoffs/cutoffs.controller';
+import { CutoffsService } from './modules/cutoffs/cutoffs.service';
+import { CutoffsScheduler } from './modules/cutoffs/cutoffs.scheduler';
+import { OrdersController } from './modules/orders/orders.controller';
+import { ORDER_QUOTE_POLICY, OrdersService } from './modules/orders/orders.service';
+import type { QuotePolicy } from './modules/orders/order.quote';
 
 @Module({})
 export class AppModule {
   static register(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController],
+      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController],
       providers: [
         { provide: API_CONFIG, useValue: config },
-        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService,
+        { provide: ORDER_QUOTE_POLICY, useValue: {
+          maximumSelectionsPerGroup: 1, ordinaryCustomAddresses: false, rejectDuplicateDishLines: true,
+        } satisfies QuotePolicy },
+        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService,
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
     };

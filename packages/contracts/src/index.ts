@@ -25,5 +25,6 @@ export interface SessionResponse { user: StaffIdentity; permissions: Permission[
 export interface LoginRequest { email: string; password: string }
 export * from './configuration';
 export * from './catalogue';
+export * from './orders';
 export interface HealthResponse { status: 'ok'; database: 'connected'; service: 'fernleaf-api' }
-export interface ApiError { code: string; message: string; fieldErrors?: Record<string, string[]>; requestId: string }
+export interface ApiError { code: string; message: string; fieldErrors?: Record<string, string[]>; details?: Record<string, unknown>; requestId: string }

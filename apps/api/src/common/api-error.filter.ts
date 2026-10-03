@@ -15,13 +15,15 @@ export class ApiErrorFilter implements ExceptionFilter {
     let code = status === 500 ? 'INTERNAL_ERROR' : `HTTP_${status}`;
     let message = status === 500 ? 'The request could not be completed. Try again or contact an administrator.' : 'The request could not be completed.';
     let fieldErrors: unknown;
+    let details: unknown;
     if (typeof detail === 'string') message = detail;
     if (typeof detail === 'object' && detail !== null) {
       if ('code' in detail && typeof detail.code === 'string') code = detail.code;
       if ('message' in detail && typeof detail.message === 'string') message = detail.message;
       if ('fieldErrors' in detail) fieldErrors = detail.fieldErrors;
+      if ('details' in detail) details = detail.details;
     }
     if (status >= 500) this.logger.error(`Request ${request.requestId} failed (${code}).`);
-    response.status(status).json({ code, message, ...(fieldErrors ? { fieldErrors } : {}), requestId: request.requestId });
+    response.status(status).json({ code, message, ...(fieldErrors ? { fieldErrors } : {}), ...(details ? { details } : {}), requestId: request.requestId });
   }
 }

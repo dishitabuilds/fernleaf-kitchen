@@ -3,6 +3,9 @@ import { seedUsers } from '../../apps/api/prisma/seed-users';
 import { seedConfiguration } from '../../apps/api/prisma/seed-configuration';
 
 export async function clearConfiguration(prisma: PrismaClient): Promise<void> {
+  await prisma.order.deleteMany();
+  await prisma.deliveryDrop.deleteMany();
+  await prisma.deliveryDateCutoff.deleteMany();
   await prisma.company.updateMany({data:{ownerEmployeeId:null,defaultAddressId:null}});
   await prisma.companyHiddenCategory.deleteMany(); await prisma.companyHiddenMenuItem.deleteMany();
   await prisma.employeeAllergen.deleteMany(); await prisma.employeeDietaryTag.deleteMany();

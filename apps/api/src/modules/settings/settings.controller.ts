@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Query, Req } from '@nestjs/common';
+import type { ApiRequest } from '../../common/request';
 import { RequirePermissions } from '../../common/access.decorator';
 import { CutoffPreviewDto, SettingsUpdateDto } from './settings.dto';
 import { SettingsService } from './settings.service';
@@ -12,7 +13,7 @@ export class SettingsController {
 
   @RequirePermissions('settings.manage')
   @Patch()
-  update(@Body() dto: SettingsUpdateDto) { return this.settings.update(dto); }
+  update(@Body() dto: SettingsUpdateDto, @Req() request: ApiRequest) { return this.settings.update(dto, request.auth!.response.user); }
 
   @RequirePermissions('settings.read')
   @Get('cutoff')

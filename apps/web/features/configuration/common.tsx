@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useSession } from '@/features/auth/session-provider';
@@ -59,8 +60,18 @@ export function useMutation() {
   }
   return { mutate, pending, failure, notice };
 }
+export function AffectedOrderLinks({ failure }: { failure: unknown }) {
+  const values = failure instanceof ApiError ? failure.details?.orders ?? failure.details?.affectedOrders : null;
+  if (!Array.isArray(values) || !values.length) return null;
+  return <div><p>Review the orders affected by this change:</p><ul>{values.map((value, index) => {
+    const record: Record<string, unknown> | null = typeof value === 'object' && value !== null ? value : null;
+    const id = typeof value === 'string' ? value : typeof record?.id === 'string' ? record.id : typeof record?.orderId === 'string' ? record.orderId : null;
+    if (!id) return null;
+    return <li key={id}><Link href={`/orders/${id}`}>Order {typeof record?.number === 'number' ? `#${record.number}` : index + 1}{typeof record?.deliveryDate === 'string' ? ` · ${record.deliveryDate}` : ''}</Link></li>;
+  })}</ul></div>;
+}
 export function Feedback({ failure, notice }: { failure?: unknown; notice?: string }) {
-  return <>{failure ? <div className="form-feedback error" role="alert"><p>{errorMessage(failure)}</p>{failure instanceof ApiError && failure.fieldErrors && <ul>{Object.entries(failure.fieldErrors).map(([field, messages]) => <li key={field}>{field}: {messages.join(' ')}</li>)}</ul>}<p>If another staff member changed this record, refresh and review its latest values before saving.</p></div> : null}{notice && <p className="form-feedback success" role="status">{notice}</p>}</>;
+  return <>{failure ? <div className="form-feedback error" role="alert"><p>{errorMessage(failure)}</p>{failure instanceof ApiError && failure.fieldErrors && <ul>{Object.entries(failure.fieldErrors).map(([field, messages]) => <li key={field}>{field}: {messages.join(' ')}</li>)}</ul>}<AffectedOrderLinks failure={failure} /><p>If another staff member changed this record, refresh and review its latest values before saving.</p></div> : null}{notice && <p className="form-feedback success" role="status">{notice}</p>}</>;
 }
 export function Heading({ title, description }: { title: string; description: string }) {
   return <div className="page-heading"><div><div className="eyebrow">KITCHEN CONFIGURATION</div><h1>{title}</h1><p>{description}</p></div><span className="phase-badge">Phase 1</span></div>;
