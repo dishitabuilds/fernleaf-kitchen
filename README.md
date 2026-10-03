@@ -17,10 +17,10 @@ The user authorised normal phase commits/pushes and creation of this project's G
 | Delivery record | Status |
 | --- | --- |
 | GitHub URL / visibility | [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), verified public |
-| Branch / phase commit / verified push | `main`; Phase 1 commit [`a44792c`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/a44792cf849bce22cfd42c4095c2c3ac141ab891) pushed on 3 October 2026; its full hash matched remote `main` after push. A following documentation commit records this evidence. |
+| Branch / phase commit / verified push | `main`; Phase 1 commit [`a44792c`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/a44792cf849bce22cfd42c4095c2c3ac141ab891) and final retry fix [`47279c3`](https://github.com/dishitabuilds/fernleaf-kitchen/commit/47279c30fe6bd4fefa0362a5ec500daa5c101eaf) pushed on 3 October 2026; each full hash matched remote `main` after push. Following documentation commits record this evidence. |
 | Web / API live URLs | Not deployed; hosting access pending |
 | Local checks | Phase 1 gate PASS: missing/hidden menu items, exact derivation and company/owner/domain rules verified; complete evidence below |
-| GitHub Actions | Phase checks PASS for `a44792c` and `cee9856`; [rerun](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116520005) exposed a bounded 409 conflict where the race test expected 400. Retry backoff and stronger post-race assertions now pass locally; final fix push/CI pending. |
+| GitHub Actions | Final retry fix `47279c3` [clean-checkout checks](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117393858) **PASS**: frozen install, lint/types, PostgreSQL migrations and 65 tests, production builds, seed and 14 browser tests |
 
 ## Scope and four roles
 
@@ -355,7 +355,7 @@ Final Phase 1 local evidence:
 | `pnpm test:e2e` Phase 1 | PASS against the final retry build; **14 Chromium tests in 27.1 seconds**, exit 0: 10 authentication/access/phone regression cases and four complete Admin configuration workflows with browser timezone America/Los_Angeles. All owned test servers stopped. |
 | `docker build --file Dockerfile.api --tag fernleaf-api:phase1 .` | PASS; current API deployment image generates Prisma and compiles contracts/API |
 | Phase 1 local production-mode container | PASS; non-root user, committed migrations, PostgreSQL health, four logins, production cookie attributes, anonymous 401/non-Admin 403, persisted settings/menu and logout. Explicit local HTTP cookie client; hosted HTTPS browser behaviour remains unverified. Temporary API container stopped; PostgreSQL retained. |
-| Phase 1 GitHub CI/commit/push | Phase commit `a44792c` pushed and [CI passed](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37116026865); evidence commit `cee9856` also passed. Docs-only `e4f8ded` rerun found a race-test timing failure (64/65 passed): safe 409 versus expected 400. Retry/backoff fix now passes all local checks; final fix push/CI pending. |
+| Phase 1 GitHub CI/commit/push | Phase commit `a44792c` and evidence commit `cee9856` passed CI. Docs-only `e4f8ded` rerun exposed a race-test assumption (safe 409 versus expected 400), fixed by backoff and stronger graph/post-race checks in `47279c3`. Final fix pushed; full hash matched remote `main`; [final CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37117393858) **PASS**, 65 backend/rule and 14 browser tests (13.8 seconds for CI browser cases). |
 | Hosted smoke checks | Blocked by pending hosting access; not run |
 
 [Phase 1 evidence](docs/phase-1.md) maps the blueprint gate to tests. Remaining planned tests: per-combination groups/sums/MOQ/duplicates and readiness/risk timing; snapshot stability after catalogue edits/employee transfer; concurrent/repeated cutoff and final-unit completion; invoice uniqueness/rollback/credit limits; own-driver/date restrictions; invalid departure/delivery; atomic grouped updates and employee flags against crafted order requests. The 400-order check will record dataset, filtering/pagination/query counts, readiness correctness and measured API/UI results. These remain acceptance plans for later phases.
@@ -400,7 +400,7 @@ Keep the deployment live at least **14 days after actual submission**. If submit
 
 ## Resume point and next phase
 
-Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` was pushed and clean-checkout CI passed. A later CI rerun exposed a race-test assumption about immediate 400 versus bounded 409; the final retry backoff and graph/post-race assertions now pass 100 focused race pairs and the complete local checks (65 backend/rule tests, 14 browser tests, lint/types/build and rebuilt API container smoke). Push and verify this final fix on `main` before reporting completion. Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned.
+Phase 1 implementation and its local acceptance gate are verified. Phase completion commit `a44792c` and final retry fix `47279c3` are pushed, their full hashes matched remote `main` after each push, and final clean-checkout CI passed. The retry backoff and graph/post-race assertions pass 100 focused race pairs and the complete checks (65 backend/rule tests, 14 browser tests, lint/types/build and rebuilt API container smoke). Code and diagrams describe the implemented configuration model; order/fulfilment/billing diagrams remain labelled planned. Following documentation commits record the verified evidence; use `git log` for the latest documentation hash.
 
 Hosting access remains the precise deployed-gate blocker; configure the prepared services and run deployed sign-in, unauthorized-access and production-database checks when access is available. The original assignment PDF/submission instructions remain missing. There is no live URL or deployment claim.
 

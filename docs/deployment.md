@@ -77,7 +77,7 @@ After actual submission:
 | Item | Actual value |
 | --- | --- |
 | Hosting access | Pending user access |
-| Repository / branch | Verified public [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), `main`; Phase 1 commit `a44792c` pushed and full remote hash verified |
+| Repository / branch | Verified public [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), `main`; Phase 1 commit `a44792c` and final retry fix `47279c3` pushed, full remote hashes verified after each push, final CI passed |
 | Deployed commit | None; not deployed |
 | Web/API URLs | Not deployed |
 | Production migrations/seed | Not run |
