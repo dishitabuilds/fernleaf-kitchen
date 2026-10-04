@@ -152,7 +152,9 @@ describe('Must release billing, dashboards and staff on isolated PostgreSQL', ()
     const first = await confirmed(), second = await confirmed('13:30');
     await post(`/orders/${second.id}/override`, action(second, { action: 'CANCEL', reason: 'Remove empty stop' })).expect(201);
     const adminCounts = (await get('/dashboard').expect(200)).body.data;
-    expect(adminCounts).toMatchObject({ todayOrders: 1, todayMeals: 2, uninvoicedTotalMinor: first.totalMinor });
+    expect(adminCounts).toMatchObject({ todayOrders: 1, todayMeals: 2, uninvoicedTotalMinor: first.totalMinor, cancelledCount: 1, rejectedCount: 0, kitchenRemainingUnits: 1, unassignedDrops: 0 });
+    expect(adminCounts.kitchenLateUnits + adminCounts.kitchenAtRiskUnits).toBeLessThanOrEqual(1);
+    expect(adminCounts.upcomingCutoffs.every((row: { draftCount: number; placedCount: number }) => row.draftCount + row.placedCount > 0)).toBe(true);
     const billableQueue = (await get('/orders?billable=true&invoiced=false').expect(200)).body;
     expect(billableQueue.items.map((item: { id: string }) => item.id)).toEqual([first.id]);
     const kitchenCounts = (await get('/dashboard', kitchen).expect(200)).body.data;

@@ -7,16 +7,34 @@ import { Icon } from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { apiRequest, errorMessage } from '@/lib/http';
 import { useSession } from '@/features/auth/session-provider';
+import { OperationsConnection } from '@/features/operations/common';
 
 function formatMoney(minor: number): string {
   return `$${(minor / 100).toFixed(2)}`;
 }
 
+function istInstant(value: string): string {
+  return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)) + ' IST';
+}
+
 function AdminDashboard({ data }: { data: AdminDashboardResponse }) {
-  return <div className="dashboard-grid">
-    <Card className="stat-card"><div className="stat-label">Committed orders today</div><div className="stat-value">{data.todayOrders}</div><div className="stat-detail">{data.todayMeals} meals · {data.draftCount} draft · {data.placedCount} placed</div></Card>
-    <Card className="stat-card"><div className="stat-label">Uninvoiced value · all dates</div><div className="stat-value">{formatMoney(data.uninvoicedTotalMinor)}</div><Link href="/orders?invoiced=false&billable=true" className="stat-link">View uninvoiced orders →</Link></Card>
-    <Card className="stat-card"><div className="stat-label">Outstanding balance</div><div className="stat-value">{formatMoney(data.outstandingBalanceMinor)}</div>{data.companyCreditMinor > 0 && <div className="stat-detail">{formatMoney(data.companyCreditMinor)} company credit</div>}<Link href="/billing" className="stat-link">View invoices →</Link></Card>
+  const dateQuery = `?date=${encodeURIComponent(data.date)}`;
+  return <>
+    <h2 className="dashboard-section-title">Demand for {data.date}</h2>
+    <div className="dashboard-grid">
+      <Card className="stat-card"><div className="stat-label">Committed orders today</div><div className="stat-value">{data.todayOrders}</div><div className="stat-detail">{data.todayMeals} meals · Confirmed + Delivered</div></Card>
+      <Card className="stat-card"><div className="stat-label">Tentative orders</div><div className="stat-value">{data.draftCount + data.placedCount}</div><div className="stat-detail">{data.draftCount} draft · {data.placedCount} placed</div></Card>
+      <Card className="stat-card"><div className="stat-label">Excluded orders</div><div className="stat-value">{data.cancelledCount + data.rejectedCount}</div><div className="stat-detail">{data.cancelledCount} cancelled · {data.rejectedCount} rejected</div></Card>
+    </div>
+    <h2 className="dashboard-section-title">Needs attention</h2>
+    <div className="dashboard-grid">
+      <Card className={`stat-card${data.kitchenLateUnits ? ' warning' : ''}`}><div className="stat-label">Kitchen late / at risk</div><div className="stat-value">{data.kitchenLateUnits} late · {data.kitchenAtRiskUnits} at risk</div><div className="stat-detail">{data.kitchenRemainingUnits} prep units remaining</div><Link href={`/kitchen${dateQuery}`} className="stat-link">Open kitchen board →</Link></Card>
+      <Card className={`stat-card${data.unassignedDrops ? ' warning' : ''}`}><div className="stat-label">Drops without a driver</div><div className="stat-value">{data.unassignedDrops}</div><div className="stat-detail">Not yet departed</div><Link href={`/dispatch${dateQuery}`} className="stat-link">Open dispatch →</Link></Card>
+      <Card className="stat-card"><div className="stat-label">Uninvoiced value · all dates</div><div className="stat-value">{formatMoney(data.uninvoicedTotalMinor)}</div><Link href="/orders?invoiced=false&billable=true" className="stat-link">View uninvoiced orders →</Link></Card>
+      <Card className="stat-card"><div className="stat-label">Outstanding balance</div><div className="stat-value">{formatMoney(data.outstandingBalanceMinor)}</div>{data.companyCreditMinor > 0 && <div className="stat-detail">{formatMoney(data.companyCreditMinor)} company credit</div>}<Link href="/billing" className="stat-link">View invoices →</Link></Card>
+    </div>
+    <Card className="stat-card dashboard-table"><div className="stat-label">Next cutoffs with open orders</div>{data.upcomingCutoffs.length ? <div className="table-scroll"><table><thead><tr><th>Delivery date</th><th>Locks at</th><th>Draft (cancelled at cutoff)</th><th>Placed (confirmed at cutoff)</th></tr></thead><tbody>{data.upcomingCutoffs.map((row) => <tr key={row.deliveryDate}><td>{row.deliveryDate}</td><td>{istInstant(row.cutoffAt)}</td><td>{row.draftCount}</td><td>{row.placedCount}</td></tr>)}</tbody></table></div> : <p className="stat-detail">No Draft or Placed orders are waiting for a cutoff.</p>}</Card>
+    <OperationsConnection />
     <div className="configuration-links">
       {[
         ['/orders', 'Manage orders', 'Quotes, recorded purchases and cutoff processing'],
@@ -29,7 +47,7 @@ function AdminDashboard({ data }: { data: AdminDashboardResponse }) {
         ['/companies', 'Companies', 'Owners, calendars and delivery defaults'],
       ].map(([href, title, description]) => <Link className="card config-link" key={href} href={href}><h3>{title}</h3><p>{description}</p><Icon name="arrow" /></Link>)}
     </div>
-  </div>;
+  </>;
 }
 
 function KitchenDashboard({ data }: { data: KitchenDashboardResponse }) {
@@ -60,8 +78,10 @@ function DriverDashboard({ data }: { data: DriverDashboardResponse }) {
   </div>;
 }
 
-export function RoleDashboard({ compact = false, date }: { compact?: boolean; date?: string }) {
+export function RoleDashboard({ compact = false, date: fixedDate }: { compact?: boolean; date?: string }) {
   const { session } = useSession();
+  const [chosenDate, setChosenDate] = useState<string | undefined>(undefined);
+  const date = fixedDate ?? chosenDate;
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +110,7 @@ export function RoleDashboard({ compact = false, date }: { compact?: boolean; da
   const roleLabel = session.user.role === 'ADMIN' ? 'Operations overview' : session.user.role === 'KITCHEN' ? 'Kitchen workspace' : session.user.role === 'DISPATCH' ? 'Dispatch workspace' : 'Your delivery day';
 
   return <>
-    {!compact && <div className="page-heading"><div><div className="eyebrow">{session.user.role} DASHBOARD</div><h1>{roleLabel}</h1></div></div>}
+    {!compact && <div className="page-heading"><div><div className="eyebrow">{session.user.role} DASHBOARD</div><h1>{roleLabel}</h1><p className="stat-detail">Signed in as <span>{session.user.email}</span></p></div>{data.role === 'ADMIN' && <label className="form-field" htmlFor="dashboard-date">Delivery date (Asia/Kolkata)<input id="dashboard-date" type="date" value={data.data.date} onChange={(event) => { if (event.target.value) { setLoading(true); setChosenDate(event.target.value); } }} /></label>}</div>}
     {compact && <p>Role summary · {date ?? 'today'} · Asia/Kolkata</p>}
     {data.role === 'ADMIN' && <AdminDashboard data={data.data} />}
     {data.role === 'KITCHEN' && <KitchenDashboard data={data.data} />}

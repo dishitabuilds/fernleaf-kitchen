@@ -366,3 +366,7 @@ td .button { min-height: 34px; padding: 6px 9px; font-size: 11px; }
 .inline-form { display: flex; gap: 10px; align-items: flex-end; }
 .inline-form input { padding: 10px 13px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; background: var(--background); flex: 1; }
 .empty-note { color: var(--muted); font-size: 13px; font-style: italic; padding: 15px 0; }
+
+.dashboard-section-title { font-size: 1rem; margin: 26px 0 0; }
+.dashboard-table { margin-top: 16px; }
+.dashboard-table table { margin-top: 10px; }

@@ -50,7 +50,7 @@ export function useOperationsResource<T>(path: string | null, intervalMs = 30000
 export function useOperationsMutation() { return useOrderMutation(); }
 export function OperationsHeading({ title, description }: { title: string; description: string }) {
   const { session } = useSession();
-  return <div className={styles.heading}><div><div className="eyebrow">KITCHEN OPERATIONS</div><h1>{title}</h1><p>{description}</p><span className={styles.identity}>{session?.user.email}</span></div><span className="phase-badge">Phase 3</span></div>;
+  return <div className={styles.heading}><div><div className="eyebrow">KITCHEN OPERATIONS</div><h1>{title}</h1><p>{description}</p><span className={styles.identity}>{session?.user.email}</span></div></div>;
 }
 export function OperationsFeedback({ failure, refresh }: { failure: unknown; refresh?: () => void }) {
   if (!failure) return null;

@@ -60,11 +60,23 @@ export interface UpdateStaffRequest {
 export type StaffPage = PageResponse<StaffUserResponse>;
 
 // Dashboard response types
+export interface AdminUpcomingCutoff {
+  deliveryDate: string; cutoffAt: string; draftCount: number; placedCount: number;
+}
+
 export interface AdminDashboardResponse {
+  /** Asia/Kolkata delivery date the date-scoped figures describe. */
+  date: string;
   todayOrders: number; todayMeals: number;
   draftCount: number; placedCount: number;
+  cancelledCount: number; rejectedCount: number;
   uninvoicedTotalMinor: number;
   outstandingBalanceMinor: number; companyCreditMinor: number;
+  /** Same definitions as the Kitchen and Dispatch summaries for the selected date. */
+  kitchenRemainingUnits: number; kitchenLateUnits: number; kitchenAtRiskUnits: number;
+  unassignedDrops: number;
+  /** Next delivery dates (today onwards) that still hold Draft/Placed orders, earliest cutoff first, max 5. */
+  upcomingCutoffs: AdminUpcomingCutoff[];
 }
 
 export interface KitchenDashboardResponse {

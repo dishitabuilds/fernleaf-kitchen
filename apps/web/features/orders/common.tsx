@@ -17,7 +17,7 @@ export function localDateLabel(value: string): string {
   return new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00Z`));
 }
 export function OrdersHeading({ title, description }: { title: string; description: string }) {
-  return <div className={styles.heading}><div><div className="eyebrow">COMPANY ORDERS</div><h1>{title}</h1><p>{description}</p></div><span className="phase-badge">Phase 2</span></div>;
+  return <div className={styles.heading}><div><div className="eyebrow">COMPANY ORDERS</div><h1>{title}</h1><p>{description}</p></div></div>;
 }
 export function StatusPill({ status }: { status: OrderStatus }) { return <span className={`status-pill ${status === 'CANCELLED' || status === 'REJECTED' ? 'warning' : ''}`}>{orderStatusLabel(status)}</span>; }
 export function OrdersFeedback({ failure, notice }: { failure?: unknown; notice?: string }) {

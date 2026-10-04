@@ -42,11 +42,13 @@ export class DashboardService {
     const todayOrders = committedOrders.length;
     const todayMeals = committedOrders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.quantity, 0), 0);
 
-    // Draft and Placed counts for today
-    const [draftCount, placedCount] = await Promise.all([
-      tx.order.count({ where: { deliveryDate: date, status: 'DRAFT' } }),
-      tx.order.count({ where: { deliveryDate: date, status: 'PLACED' } }),
-    ]);
+    // Tentative and excluded counts for the same delivery date, shown separately.
+    const statusCounts = await tx.order.groupBy({
+      by: ['status'], where: { deliveryDate: date, status: { in: ['DRAFT', 'PLACED', 'CANCELLED', 'REJECTED'] } }, _count: { _all: true },
+    });
+    const countOf = (status: string) => statusCounts.find((row) => row.status === status)?._count._all ?? 0;
+    const draftCount = countOf('DRAFT');
+    const placedCount = countOf('PLACED');
 
     // Uninvoiced value: all dates, Confirmed/Delivered, no invoice
     const uninvoicedAgg = await tx.order.aggregate({
@@ -68,7 +70,36 @@ export class DashboardService {
       else if (net < 0) companyCreditMinor += Math.abs(net);
     }
 
-    return { todayOrders, todayMeals, draftCount, placedCount, uninvoicedTotalMinor, outstandingBalanceMinor, companyCreditMinor };
+    // Operational exceptions reuse the Kitchen/Dispatch definitions so the figures agree across roles.
+    const kitchen = await this.kitchen({ date }, tx);
+    const dispatch = await this.dispatch({ date }, tx);
+
+    // Upcoming locks: delivery dates from today with Draft/Placed orders, earliest cutoff first.
+    const today = kitchenDate(this.clock.now());
+    const pendingDates = await tx.deliveryDateCutoff.findMany({
+      where: { deliveryDate: { gte: today }, orders: { some: { status: { in: ['DRAFT', 'PLACED'] } } } },
+      orderBy: [{ cutoffAt: 'asc' }, { deliveryDate: 'asc' }], take: 5,
+      select: { deliveryDate: true, cutoffAt: true },
+    });
+    const pendingCounts = pendingDates.length ? await tx.order.groupBy({
+      by: ['deliveryDate', 'status'],
+      where: { deliveryDate: { in: pendingDates.map((row) => row.deliveryDate) }, status: { in: ['DRAFT', 'PLACED'] } },
+      _count: { _all: true },
+    }) : [];
+    const upcomingCutoffs = pendingDates.map((row) => ({
+      deliveryDate: row.deliveryDate, cutoffAt: row.cutoffAt.toISOString(),
+      draftCount: pendingCounts.find((c) => c.deliveryDate === row.deliveryDate && c.status === 'DRAFT')?._count._all ?? 0,
+      placedCount: pendingCounts.find((c) => c.deliveryDate === row.deliveryDate && c.status === 'PLACED')?._count._all ?? 0,
+    }));
+
+    return {
+      date, todayOrders, todayMeals, draftCount, placedCount,
+      cancelledCount: countOf('CANCELLED'), rejectedCount: countOf('REJECTED'),
+      uninvoicedTotalMinor, outstandingBalanceMinor, companyCreditMinor,
+      kitchenRemainingUnits: kitchen.unitsByStation.reduce((sum, station) => sum + station.remaining, 0),
+      kitchenLateUnits: kitchen.lateCount, kitchenAtRiskUnits: kitchen.atRiskCount,
+      unassignedDrops: dispatch.unassigned, upcomingCutoffs,
+    };
   }
 
   // ── KITCHEN DASHBOARD ────────────────────────────────────────────

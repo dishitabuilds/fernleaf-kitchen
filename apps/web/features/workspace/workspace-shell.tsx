@@ -49,7 +49,7 @@ export function WorkspaceShell({ children, allowedRoles }: { children: React.Rea
         {session.user.role === 'ADMIN' && [['/orders', 'Orders'], ['/kitchen', 'Kitchen'], ['/dispatch', 'Dispatch'], ['/billing', 'Billing'], ['/staff', 'Staff'], ['/catalogue', 'Catalogue'], ['/menu', 'Menu'], ['/pricing', 'Pricing'], ['/companies', 'Companies'], ['/employees', 'Employees']].map(([href, label]) => <Link key={href} href={href} aria-current={pathname.startsWith(href) ? 'page' : undefined} className={`nav-link ${pathname.startsWith(href) ? 'active' : ''}`}><Icon name={href === '/catalogue' || href === '/menu' || href === '/kitchen' ? 'utensils' : href === '/dispatch' ? 'truck' : 'grid'} />{label}</Link>)}
         {canReadSettings && <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined} className={`nav-link ${pathname === '/settings' ? 'active' : ''}`}><Icon name="settings" />Settings</Link>}
       </nav>
-      <div className="sidebar-bottom"><div className="phase-label"><span className="status-dot" />Billing and dashboards</div><p>Phase 4 · Operational billing</p></div>
+      <div className="sidebar-bottom"><div className="phase-label"><span className="status-dot" />Fernleaf Kitchen</div><p>Times shown in Asia/Kolkata</p></div>
     </aside>
     <div className="workspace-main">
       <header className="workspace-header"><span className="header-context">Kitchen time <span>Asia/Kolkata</span></span><div className="account-actions"><span className="role-badge">{role.label}</span><span className="account-name">{session.user.displayName}</span><Button variant="ghost" onClick={() => void logout()} disabled={logoutPending}><Icon name="logout" /><span>{logoutPending ? 'Signing out…' : 'Sign out'}</span></Button></div></header>

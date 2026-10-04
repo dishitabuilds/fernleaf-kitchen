@@ -74,7 +74,7 @@ export function Feedback({ failure, notice }: { failure?: unknown; notice?: stri
   return <>{failure ? <div className="form-feedback error" role="alert"><p>{errorMessage(failure)}</p>{failure instanceof ApiError && failure.fieldErrors && <ul>{Object.entries(failure.fieldErrors).map(([field, messages]) => <li key={field}>{field}: {messages.join(' ')}</li>)}</ul>}<AffectedOrderLinks failure={failure} /><p>If another staff member changed this record, refresh and review its latest values before saving.</p></div> : null}{notice && <p className="form-feedback success" role="status">{notice}</p>}</>;
 }
 export function Heading({ title, description }: { title: string; description: string }) {
-  return <div className="page-heading"><div><div className="eyebrow">KITCHEN CONFIGURATION</div><h1>{title}</h1><p>{description}</p></div><span className="phase-badge">Phase 1</span></div>;
+  return <div className="page-heading"><div><div className="eyebrow">KITCHEN CONFIGURATION</div><h1>{title}</h1><p>{description}</p></div></div>;
 }
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export function FormFields({ fields, initial = {}, prefix }: { fields: FieldDefinition[]; initial?: Values; prefix: string }) {
