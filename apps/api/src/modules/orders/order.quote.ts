@@ -89,10 +89,12 @@ export async function quoteInTransaction(tx: Prisma.TransactionClient, input: Or
     const available = preview.categories.flatMap((category) => category.dishes).find((dish) => dish.menuItemId === item.id);
     if (!available || available.priceMinor === null) throw new ApiError(400, 'MENU_ITEM_UNAVAILABLE', 'This dish is unavailable for the employee because of activity, hiding, required options or pricing.', undefined,
       { menuItemId: item.id, diagnostics: preview.diagnostics.filter((diagnostic) => diagnostic.menuItemId === item.id) });
-    const groups = available.groups.map((group) => ({ id: group.id, required: group.required, options: group.options.map((option) => {
+    const groups = available.groups.map((group) => ({ id: group.id, required: group.required, usesPortions: group.portionSizes.length > 0 ||
+      item.dish.groups.find((candidate) => candidate.id === group.id)!.portionSizes.length > 0, options: group.options.map((option) => {
       const source = item.dish.groups.find((candidate) => candidate.id === group.id)!.options.find((candidate) => candidate.optionId === option.id)!.option;
       return { groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, priceMinor: option.priceMinor,
-        priceSource: option.source, tierId, allergens: references(source.allergens), dietaryTags: references(source.dietaryTags) };
+        priceSource: option.source, tierId, allergens: references(source.allergens), dietaryTags: references(source.dietaryTags),
+        portionSizeId: null, portionName: null, portionSurchargeMinor: null, portions: option.portions };
     }) }));
     const combinations = quoteCombinations(line, item.dish.minQuantity ?? 1, available.priceMinor, groups, policy.maximumSelectionsPerGroup);
     const allergyIds = new Set(employee.allergens.map((entry) => entry.referenceId));

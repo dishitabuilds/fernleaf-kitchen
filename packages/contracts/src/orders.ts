@@ -4,7 +4,7 @@ import type { OperationalDropSummary } from './operations';
 
 export const ORDER_STATUSES = ['DRAFT', 'PLACED', 'CONFIRMED', 'DELIVERED', 'CANCELLED', 'REJECTED'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
-export interface OrderSelectionInput { groupId: string; optionId: string }
+export interface OrderSelectionInput { groupId: string; optionId: string; /** Required when the group sells portions, forbidden otherwise. */ portionSizeId?: string }
 export interface OrderCombinationInput { quantity: number; selections: OrderSelectionInput[] }
 export interface OrderLineInput { menuItemId: string; quantity: number; combinations: OrderCombinationInput[] }
 export interface DeliveryAddressSnapshot {
@@ -40,7 +40,10 @@ export interface DishPurchaseSnapshot {
 }
 export interface OrderSelectionSnapshot {
   groupId: string; groupName: string; optionId: string; optionName: string;
+  /** Option tier price plus any portion surcharge, per meal. */
   priceMinor: number; priceSource: PriceSource; tierId: string;
+  /** Absent on snapshots recorded before portions existed. */
+  portionSizeId?: string | null; portionName?: string | null; portionSurchargeMinor?: number | null;
   allergens: ReferenceSnapshot[]; dietaryTags: ReferenceSnapshot[];
 }
 export interface QuotedCombination {

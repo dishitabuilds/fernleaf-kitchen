@@ -2,7 +2,7 @@ import type { DeliveryDropResponse, DeliveryPurchaseSnapshot, DishPurchaseSnapsh
 import type { Prisma } from '../../generated/prisma/client';
 import { timingRisk } from '../../domain/operations';
 
-const selectionSelect = { groupId: true, groupName: true, optionId: true, optionName: true, allergens: true, dietaryTags: true } satisfies Prisma.SelectionSnapshotSelect;
+const selectionSelect = { groupId: true, groupName: true, optionId: true, optionName: true, portionName: true, allergens: true, dietaryTags: true } satisfies Prisma.SelectionSnapshotSelect;
 const orderFields = {
   id: true, number: true, status: true, version: true, companyName: true, employeeName: true, employeeSnapshot: true,
   deliveryDate: true, deliveryAt: true, deliverySnapshot: true, plannedKitchenReadyAt: true, plannedDispatchReadyAt: true,

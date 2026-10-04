@@ -17,6 +17,7 @@ export async function clearConfiguration(prisma: PrismaClient): Promise<void> {
   await prisma.dishTierPrice.deleteMany(); await prisma.optionTierPrice.deleteMany();
   await prisma.priceTier.updateMany({data:{rule:'MANUAL',referenceTierId:null}}); await prisma.priceTier.deleteMany();
   await prisma.menuItem.deleteMany(); await prisma.category.deleteMany();
+  await prisma.optionPortionPrice.deleteMany(); await prisma.groupPortionSize.deleteMany();
   await prisma.groupOption.deleteMany(); await prisma.dishOptionGroup.deleteMany();
   await prisma.dishAllergen.deleteMany(); await prisma.dishDietaryTag.deleteMany(); await prisma.optionAllergen.deleteMany(); await prisma.optionDietaryTag.deleteMany();
   await prisma.dish.deleteMany(); await prisma.option.deleteMany(); await prisma.referenceValue.deleteMany();

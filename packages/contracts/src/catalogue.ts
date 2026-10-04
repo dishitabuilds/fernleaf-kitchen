@@ -10,7 +10,17 @@ export interface CatalogueOption {
 }
 export interface CatalogueGroup {
   id: string; name: string; required: boolean; sortOrder: number;
-  options: { optionId: string; sortOrder: number; option: CatalogueOption }[];
+  options: { optionId: string; sortOrder: number; option: CatalogueOption; portionPrices: { portionSizeId: string; surchargeMinor: number }[] }[];
+  /** Empty when the group does not sell portions. */
+  portionSizes: { portionSizeId: string; sortOrder: number; portionSize: ReferenceSummary }[];
+}
+export interface GroupPortionSurchargeInput { optionId: string; portionSizeId: string; surchargeMinor: number }
+export interface DishGroupInput {
+  id?: string; name: string; required: boolean; sortOrder: number; optionIds: string[];
+  /** Ordered sizes the group sells; omit or leave empty for a group without portions. */
+  portionSizeIds?: string[];
+  /** Required for every option × size when portionSizeIds is non-empty. */
+  portionSurcharges?: GroupPortionSurchargeInput[];
 }
 export interface CatalogueDish {
   id: string; sku: string; name: string; description: string; imageUrl: string | null;
@@ -29,11 +39,15 @@ export interface PriceMatrixEntry {
   explicitMinor: number | null; effectiveMinor: number | null; source: PriceSource;
 }
 export interface PriceMatrix extends Page<PriceMatrixEntry> { tier: PriceTierRecord }
-export interface MenuPreviewOption { id: string; name: string; priceMinor: number; source: PriceSource; allergyWarnings: string[]; dietaryTags: string[] }
+export interface MenuPreviewOption {
+  id: string; name: string; priceMinor: number; source: PriceSource; allergyWarnings: string[]; dietaryTags: string[];
+  /** Per-size surcharge on top of priceMinor; empty when the group has no portions. */
+  portions: { portionSizeId: string; name: string; surchargeMinor: number }[];
+}
 export interface MenuPreviewDish {
   menuItemId: string; dishId: string; sku: string; name: string; description: string; imageUrl: string | null;
   priceMinor: number; source: PriceSource; minQuantity: number | null; allergyWarnings: string[]; dietaryTags: string[];
-  groups: { id: string; name: string; required: boolean; options: MenuPreviewOption[] }[];
+  groups: { id: string; name: string; required: boolean; portionSizes: { id: string; name: string }[]; options: MenuPreviewOption[] }[];
 }
 export interface MenuDiagnostic { menuItemId: string; dishId: string; dishName: string; reason: string }
 export interface EmployeeMenuPreview {

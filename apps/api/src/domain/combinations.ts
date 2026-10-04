@@ -3,8 +3,24 @@ import type { OrderLineInput, OrderSelectionSnapshot, QuotedCombination } from '
 import { ApiError } from '../common/api-error';
 import { MAX_MINOR, assertMinor } from './money';
 
+export interface PricedPortion { portionSizeId: string; name: string; surchargeMinor: number }
+export interface PricedOption extends OrderSelectionSnapshot { portions?: PricedPortion[] }
 export interface PricedGroup {
-  id: string; required: boolean; options: OrderSelectionSnapshot[];
+  /** usesPortions: the group sells sizes, so every selection in it must name one of the option's priced sizes. */
+  id: string; required: boolean; usesPortions?: boolean; options: PricedOption[];
+}
+function selectedPrice(group: PricedGroup, option: PricedOption, portionSizeId: string | undefined): OrderSelectionSnapshot {
+  const { portions, ...base } = option;
+  if (!group.usesPortions) {
+    if (portionSizeId) throw new ApiError(400, 'PORTION_NOT_OFFERED', `${option.groupName} does not sell portion sizes.`);
+    return { ...base, portionSizeId: null, portionName: null, portionSurchargeMinor: null };
+  }
+  if (!portionSizeId) throw new ApiError(400, 'PORTION_REQUIRED', `Choose a portion size for ${option.optionName} in ${option.groupName}.`);
+  const portion = portions?.find((candidate) => candidate.portionSizeId === portionSizeId);
+  if (!portion) throw new ApiError(400, 'PORTION_INVALID', `${option.optionName} is not available in the selected size.`);
+  assertMinor(portion.surchargeMinor);
+  return { ...base, priceMinor: checkedMoney(BigInt(base.priceMinor) + BigInt(portion.surchargeMinor)),
+    portionSizeId, portionName: portion.name, portionSurchargeMinor: portion.surchargeMinor };
 }
 export function checkedMoney(value: bigint): number {
   if (value < 0n || value > BigInt(MAX_MINOR)) throw new ApiError(400, 'ORDER_TOTAL_OVERFLOW', 'This order exceeds the supported total. Reduce its quantities.');
@@ -33,11 +49,12 @@ export function quoteCombinations(line: OrderLineInput, minimum: number, basePri
       if (choices.includes(selection.optionId)) throw new ApiError(400, 'SELECTION_DUPLICATE', 'The same option cannot be repeated in one combination.');
       choices.push(selection.optionId); byGroup.set(group.id, choices);
       if (choices.length > maximumSelectionsPerGroup) throw new ApiError(400, 'GROUP_CARDINALITY_INVALID', 'This group has too many selected options.');
-      selections.push(priced);
+      selections.push(selectedPrice(group, priced, selection.portionSizeId));
     }
     if (groups.some((group) => group.required && !byGroup.get(group.id)?.length)) throw new ApiError(400, 'REQUIRED_GROUP_MISSING', 'Every required group must be satisfied in every combination.');
     selections.sort((a, b) => a.groupId.localeCompare(b.groupId) || a.optionId.localeCompare(b.optionId));
-    const key = createHash('sha256').update(JSON.stringify(selections.map(({ groupId, optionId }) => [groupId, optionId]))).digest('hex');
+    // Portion is part of the cooked unit's identity; unportioned selections keep their historical two-part key.
+    const key = createHash('sha256').update(JSON.stringify(selections.map(({ groupId, optionId, portionSizeId }) => portionSizeId ? [groupId, optionId, portionSizeId] : [groupId, optionId]))).digest('hex');
     const unitPriceMinor = checkedMoney(selections.reduce((total, selection) => total + BigInt(selection.priceMinor), BigInt(basePriceMinor)));
     const existing = merged.get(key);
     if (existing) {

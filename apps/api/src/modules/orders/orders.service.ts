@@ -319,6 +319,7 @@ export class OrdersService {
           selections: { create: combination.selections.map((selection, index) => ({ groupId: selection.groupId,
             groupName: selection.groupName, optionId: selection.optionId, optionName: selection.optionName,
             priceMinor: selection.priceMinor, priceSource: selection.priceSource, tierId: selection.tierId, sortOrder: index,
+            portionSizeId: selection.portionSizeId ?? null, portionName: selection.portionName ?? null, portionSurchargeMinor: selection.portionSurchargeMinor ?? null,
             allergens: json(selection.allergens), dietaryTags: json(selection.dietaryTags) })) },
         })) },
       } });

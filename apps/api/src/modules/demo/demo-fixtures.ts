@@ -83,6 +83,30 @@ async function installConfiguration(tx: Prisma.TransactionClient): Promise<void>
   }
 }
 
+// Portions [Should] demo: added after the original installer, so it is installed separately and idempotently on existing databases.
+// An optional group keeps every existing demo order and daily fixture valid (they never select it).
+async function installPortions(tx: Prisma.TransactionClient): Promise<void> {
+  if (!await tx.priceTier.findUnique({ where: { id: TIER_ID } }) || await tx.option.findUnique({ where: { id: demoId('option:protein:0') } })) return;
+  const sizes = await tx.referenceValue.findMany({ where: { kind: 'PORTION_SIZE', active: true, name: { in: ['Regular', 'Large'] } } });
+  const regular = sizes.find((size) => size.name === 'Regular'), large = sizes.find((size) => size.name === 'Large');
+  if (!regular || !large) return;
+  const proteins = [['Paneer cubes', 180, 120], ['Smoked tofu', 160, 100]] as const;
+  for (const [index, [name, amountMinor]] of proteins.entries()) {
+    await tx.option.create({ data: { id: demoId(`option:protein:${index}`), name: `${name} (review)`, costMinor: Math.ceil(amountMinor / 2), description: 'Extra protein sold in Regular or Large portions.' } });
+    await tx.optionTierPrice.create({ data: { tierId: TIER_ID, optionId: demoId(`option:protein:${index}`), amountMinor } });
+  }
+  for (const dish of [0, 2, 3]) {
+    if (!await tx.dish.findUnique({ where: { id: demoId(`dish:${dish}`) } })) continue;
+    const groupId = demoId(`protein:${dish}`);
+    await tx.dishOptionGroup.create({ data: { id: groupId, dishId: demoId(`dish:${dish}`), name: 'Extra protein (choose a size)', required: false, sortOrder: 2 } });
+    await tx.groupOption.createMany({ data: proteins.map((_, sortOrder) => ({ groupId, optionId: demoId(`option:protein:${sortOrder}`), sortOrder })) });
+    await tx.groupPortionSize.createMany({ data: [regular, large].map((size, sortOrder) => ({ groupId, portionSizeId: size.id, sortOrder })) });
+    await tx.optionPortionPrice.createMany({ data: proteins.flatMap(([, , largeSurcharge], option) => [
+      { groupId, optionId: demoId(`option:protein:${option}`), portionSizeId: regular.id, surchargeMinor: 0 },
+      { groupId, optionId: demoId(`option:protein:${option}`), portionSizeId: large.id, surchargeMinor: largeSurcharge }]) });
+  }
+}
+
 type Scenario = { date: string; company: number; key: string; time?: string; status: OrderStatus; stage?: DropStatus };
 
 // This is intentionally callable only by the CLI and scheduler, never a HTTP
@@ -96,6 +120,7 @@ export async function seedDemoFixtures(prisma: PrismaClient, now = new Date()): 
     // PostgreSQL serializes the installer and insert-if-missing scenario check.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(704102026)`;
     await installConfiguration(tx);
+    await installPortions(tx);
   }, { timeout: 60_000 });
   const scenarios: Scenario[] = [];
   for (const offset of [-7, -3, -1]) for (let company = 0; company < 3; company++) scenarios.push({ date: shiftedDate(today, offset), company, key: 'history', status: 'DELIVERED', stage: 'DELIVERED' });

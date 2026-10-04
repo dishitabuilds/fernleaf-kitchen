@@ -3,7 +3,7 @@ import { ApiError } from '../../common/api-error';
 import { serializable, translateDatabaseError } from '../../common/transaction';
 import { PrismaService } from '../../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
-import { CatalogueQuery, CategoryInput, DishInput, GroupsInput, MenuItemInput, OptionInput } from './catalogue.dto';
+import { CatalogueQuery, CategoryInput, DishInput, GroupInput, GroupsInput, MenuItemInput, OptionInput } from './catalogue.dto';
 
 export const optionInclude = {
   allergens: { include: { reference: true } }, dietaryTags: { include: { reference: true } },
@@ -11,7 +11,9 @@ export const optionInclude = {
 export const dishInclude = {
   allergens: { include: { reference: true } }, dietaryTags: { include: { reference: true } },
   groups: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }], include: {
-    options: { orderBy: [{ sortOrder: 'asc' }, { optionId: 'asc' }], include: { option: { include: optionInclude } } },
+    options: { orderBy: [{ sortOrder: 'asc' }, { optionId: 'asc' }], include: { option: { include: optionInclude },
+      portionPrices: { select: { portionSizeId: true, surchargeMinor: true }, orderBy: { portionSizeId: 'asc' } } } },
+    portionSizes: { orderBy: [{ sortOrder: 'asc' }, { portionSizeId: 'asc' }], include: { portionSize: { select: { id: true, name: true, active: true } } } },
   } },
 } satisfies Prisma.DishInclude;
 
@@ -19,6 +21,24 @@ function required(value: unknown, field: string): void {
   if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
     throw new ApiError(400, 'VALIDATION_FAILED', `${field} is required.`, { [field]: ['Provide a value.'] });
   }
+}
+/**
+ * A group either sells portions or it doesn't. When it does, every option it offers must carry a surcharge for every one
+ * of the group's sizes (and nothing else), so no option can be chosen in a size it does not support.
+ */
+export function validatePortions(group: GroupInput): void {
+  const sizes = group.portionSizeIds ?? [], surcharges = group.portionSurcharges ?? [];
+  const fail = (message: string) => { throw new ApiError(400, 'GROUP_PORTIONS_INVALID', `${group.name.trim() || 'Group'}: ${message}`, { portionSurcharges: [message] }); };
+  if (!sizes.length) { if (surcharges.length) fail('Remove portion surcharges or choose the sizes this group sells.'); return; }
+  if (!group.optionIds.length) fail('Add options before choosing portion sizes.');
+  const seen = new Set<string>();
+  for (const entry of surcharges) {
+    if (!group.optionIds.includes(entry.optionId) || !sizes.includes(entry.portionSizeId)) fail('Surcharges may refer only to this group\'s options and sizes.');
+    const key = `${entry.optionId}:${entry.portionSizeId}`;
+    if (seen.has(key)) fail('Enter one surcharge per option and size.');
+    seen.add(key);
+  }
+  if (seen.size !== sizes.length * group.optionIds.length) fail('Every option in a portion group must have a surcharge for every size (use 0 for no extra charge).');
 }
 function bounds(query: CatalogueQuery) { return { skip: (query.page - 1) * query.pageSize, take: query.pageSize }; }
 function active(query: CatalogueQuery) { return query.active === undefined ? {} : { active: query.active === 'true' }; }
@@ -123,14 +143,25 @@ export class CatalogueService {
         const optionIds = [...new Set(input.groups.flatMap((group) => group.optionIds))];
         if (await tx.option.count({ where: { id: { in: optionIds }, active: true } }) !== optionIds.length) throw new ApiError(400, 'OPTION_INVALID', 'Every selected option must exist and be active.');
         if (input.groups.some((group) => !group.name.trim() || (group.required && group.optionIds.length === 0))) throw new ApiError(400, 'GROUP_INVALID', 'Name every group and add at least one option to required groups.');
+        input.groups.forEach((group) => validatePortions(group));
+        const sizeIds = [...new Set(input.groups.flatMap((group) => group.portionSizeIds ?? []))];
+        if (await tx.referenceValue.count({ where: { id: { in: sizeIds }, kind: 'PORTION_SIZE', active: true } }) !== sizeIds.length) {
+          throw new ApiError(400, 'PORTION_SIZE_INVALID', 'Select active portion sizes from the reference list.');
+        }
         const removedIds = existing.filter((group) => !ids.includes(group.id)).map((group) => group.id);
+        await tx.groupPortionSize.deleteMany({ where: { groupId: { in: removedIds } } });
         await tx.groupOption.deleteMany({ where: { groupId: { in: removedIds } } });
         await tx.dishOptionGroup.deleteMany({ where: { id: { in: removedIds } } });
         for (const inputGroup of input.groups) {
           const data = { name: inputGroup.name.trim(), required: inputGroup.required, sortOrder: inputGroup.sortOrder };
           const group = inputGroup.id ? await tx.dishOptionGroup.update({ where: { id: inputGroup.id }, data }) : await tx.dishOptionGroup.create({ data: { ...data, dishId } });
+          await tx.groupPortionSize.deleteMany({ where: { groupId: group.id } });
           await tx.groupOption.deleteMany({ where: { groupId: group.id } });
           await tx.groupOption.createMany({ data: inputGroup.optionIds.map((optionId, sortOrder) => ({ groupId: group.id, optionId, sortOrder })) });
+          await tx.groupPortionSize.createMany({ data: (inputGroup.portionSizeIds ?? []).map((portionSizeId, sortOrder) => ({ groupId: group.id, portionSizeId, sortOrder })) });
+          if (inputGroup.portionSizeIds?.length) {
+            await tx.optionPortionPrice.createMany({ data: inputGroup.portionSurcharges!.map((entry) => ({ groupId: group.id, ...entry })) });
+          }
         }
         return tx.dish.findUniqueOrThrow({ where: { id: dishId }, include: dishInclude });
       });

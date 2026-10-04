@@ -8,6 +8,7 @@ const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? valu
 export class SelectionDto {
   @IsUUID() groupId!: string;
   @IsUUID() optionId!: string;
+  @IsOptional() @IsUUID() portionSizeId?: string;
 }
 export class CombinationDto {
   @IsInt() @Min(1) @Max(100000) quantity!: number;

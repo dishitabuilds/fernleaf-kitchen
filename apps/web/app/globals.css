@@ -370,3 +370,7 @@ td .button { min-height: 34px; padding: 6px 9px; font-size: 11px; }
 .dashboard-section-title { font-size: 1rem; margin: 26px 0 0; }
 .dashboard-table { margin-top: 16px; }
 .dashboard-table table { margin-top: 10px; }
+
+.portion-editor { margin: 0.75rem 0; display: grid; gap: 0.5rem; }
+.portion-editor table input { width: 6rem; }
+.checkbox-row { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; }

@@ -19,7 +19,7 @@ export interface PrepUnitResponse {
   deliveryDate: string; deliveryAt: string; plannedKitchenReadyAt: string | null;
   startedAt: string | null; doneAt: string | null; risk: TimingRisk;
   dish: DishPurchaseSnapshot;
-  selections: { groupId: string; groupName: string; optionId: string; optionName: string; allergens: ReferenceSnapshot[]; dietaryTags: ReferenceSnapshot[] }[];
+  selections: { groupId: string; groupName: string; optionId: string; optionName: string; portionName?: string | null; allergens: ReferenceSnapshot[]; dietaryTags: ReferenceSnapshot[] }[];
   allergyWarnings: string[]; packaging: ReferenceSnapshot | null;
 }
 export interface KitchenBoardResponse extends PageResponse<PrepUnitResponse> {

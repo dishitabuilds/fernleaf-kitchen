@@ -1,6 +1,6 @@
 import type { CustomDeliveryAddress, OrderInput, OrderLineInput } from '@fernleaf/contracts';
 
-export interface EditableCombination { key: string; quantity: string; selections: { groupId: string; optionId: string }[] }
+export interface EditableCombination { key: string; quantity: string; selections: { groupId: string; optionId: string; portionSizeId?: string }[] }
 export interface EditableLine { key: string; menuItemId: string; quantity: string; combinations: EditableCombination[] }
 export interface DeliveryChoices {
   addressId: string; deliveryTime: string; packaging: string;

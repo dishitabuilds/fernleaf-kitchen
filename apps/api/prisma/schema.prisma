@@ -64,6 +64,7 @@ model ReferenceValue {
   optionTags        OptionDietaryTag[]
   employeeAllergens EmployeeAllergen[]
   employeeTags      EmployeeDietaryTag[]
+  groupPortions     GroupPortionSize[]
 
   @@unique([kind, name])
 }
@@ -144,6 +145,8 @@ model DishOptionGroup {
   required  Boolean       @default(false)
   sortOrder Int           @default(0)
   options   GroupOption[]
+  // A group "uses portions" exactly when it lists at least one size.
+  portionSizes GroupPortionSize[]
 
   @@index([dishId, sortOrder])
 }
@@ -155,7 +158,34 @@ model GroupOption {
   option    Option          @relation(fields: [optionId], references: [id], onDelete: Restrict)
   sortOrder Int             @default(0)
 
+  portionPrices OptionPortionPrice[]
+
   @@id([groupId, optionId])
+}
+
+// Sizes a portion-using group sells, in display order (references of kind PORTION_SIZE).
+model GroupPortionSize {
+  groupId       String               @db.Uuid
+  portionSizeId String               @db.Uuid
+  sortOrder     Int
+  group         DishOptionGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  portionSize   ReferenceValue       @relation(fields: [portionSizeId], references: [id], onDelete: Restrict)
+  prices        OptionPortionPrice[]
+
+  @@id([groupId, portionSizeId])
+}
+
+// Extra charge for one option in one size, on top of the option's own tier price.
+// Composite keys guarantee the option belongs to the group and the size is one the group sells.
+model OptionPortionPrice {
+  groupId        String           @db.Uuid
+  optionId       String           @db.Uuid
+  portionSizeId  String           @db.Uuid
+  surchargeMinor Int
+  groupOption    GroupOption      @relation(fields: [groupId, optionId], references: [groupId, optionId], onDelete: Cascade)
+  groupSize      GroupPortionSize @relation(fields: [groupId, portionSizeId], references: [groupId, portionSizeId], onDelete: Cascade)
+
+  @@id([groupId, optionId, portionSizeId])
 }
 
 model Category {
@@ -495,6 +525,10 @@ model SelectionSnapshot {
   priceMinor    Int
   priceSource   String           @db.VarChar(20)
   tierId        String           @db.Uuid
+  // Portion purchased for this option, if its group sold sizes; priceMinor already includes the surcharge.
+  portionSizeId         String?  @db.Uuid
+  portionName           String?  @db.VarChar(150)
+  portionSurchargeMinor Int?
   sortOrder     Int
   allergens     Json
   dietaryTags   Json

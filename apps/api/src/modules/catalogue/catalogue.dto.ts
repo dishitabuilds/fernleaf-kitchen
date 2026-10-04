@@ -49,12 +49,20 @@ export class MenuItemInput {
   @OptionalValue() @IsInt() @Min(0) @Max(100000) sortOrder?: number;
 }
 
+export class PortionSurchargeInput {
+  @IsUUID() optionId!: string;
+  @IsUUID() portionSizeId!: string;
+  @IsInt() @Min(0) @Max(100_000_000) surchargeMinor!: number;
+}
+
 export class GroupInput {
   @OptionalValue() @IsUUID() id?: string;
   @IsString() @MinLength(1) @MaxLength(150) name!: string;
   @IsBoolean() required!: boolean;
   @IsInt() @Min(0) @Max(100000) sortOrder!: number;
   @IsArray() @ArrayMaxSize(100) @ArrayUnique() @IsUUID('4', { each: true }) optionIds!: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @ArrayUnique() @IsUUID('4', { each: true }) portionSizeIds?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(1000) @ValidateNested({ each: true }) @Type(() => PortionSurchargeInput) portionSurcharges?: PortionSurchargeInput[];
 }
 
 export class GroupsInput {

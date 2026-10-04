@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { OrderLineInput, OrderSelectionSnapshot } from '@fernleaf/contracts';
 import { quoteCombinations } from '../../apps/api/src/domain/combinations';
 import { MAX_MINOR } from '../../apps/api/src/domain/money';
@@ -79,5 +80,35 @@ describe('Exact order combination arithmetic and validation', () => {
     expectCode(() => quoteCombinations(input(), 1, MAX_MINOR, groups, 1), 'ORDER_TOTAL_OVERFLOW');
     const line = { ...input(), quantity: 2, combinations: [{ quantity: 2, selections: [] }] };
     expectCode(() => quoteCombinations(line, 1, MAX_MINOR, [], 1), 'ORDER_TOTAL_OVERFLOW');
+  });
+
+  describe('portions', () => {
+    const regular = '91000000-0000-4000-8000-000000000001', large = '91000000-0000-4000-8000-000000000002';
+    const portioned = [{ id: groupId, required: true, usesPortions: true, options: [
+      { ...option(brownId, 80), portions: [{ portionSizeId: regular, name: 'Regular', surchargeMinor: 0 }, { portionSizeId: large, name: 'Large', surchargeMinor: 150 }] },
+      { ...option(jeeraId, 120), portions: [{ portionSizeId: regular, name: 'Regular', surchargeMinor: 0 }] },
+    ] }];
+    const line = (selections: OrderLineInput['combinations'][number]['selections'][], quantities: number[]): OrderLineInput => ({
+      menuItemId: '80000000-0000-4000-8000-000000000001', quantity: quantities.reduce((a, b) => a + b, 0),
+      combinations: selections.map((entry, index) => ({ quantity: quantities[index], selections: entry })) });
+
+    it('adds the size surcharge to the option price and keeps sizes as separate prep combinations', () => {
+      const result = quoteCombinations(line([[{ groupId, optionId: brownId, portionSizeId: large }], [{ groupId, optionId: brownId, portionSizeId: regular }]], [3, 2]), 1, 800, portioned, 1);
+      expect(result).toHaveLength(2);
+      const big = result.find((entry) => entry.selections[0].portionSizeId === large)!;
+      expect(big).toMatchObject({ quantity: 3, unitPriceMinor: 1030, totalMinor: 3090 });
+      expect(big.selections[0]).toMatchObject({ priceMinor: 230, portionName: 'Large', portionSurchargeMinor: 150 });
+      expect(result.reduce((total, entry) => total + entry.totalMinor, 0)).toBe(3090 + 1760);
+    });
+    it('requires a supported size in portion groups and rejects sizes elsewhere', () => {
+      expectCode(() => quoteCombinations(line([[{ groupId, optionId: brownId }]], [1]), 1, 800, portioned, 1), 'PORTION_REQUIRED');
+      expectCode(() => quoteCombinations(line([[{ groupId, optionId: jeeraId, portionSizeId: large }]], [1]), 1, 800, portioned, 1), 'PORTION_INVALID');
+      expectCode(() => quoteCombinations(line([[{ groupId, optionId: brownId, portionSizeId: regular }]], [1]), 1, 800, groups, 1), 'PORTION_NOT_OFFERED');
+    });
+    it('keeps the historical canonical key for unportioned selections', () => {
+      const [unit] = quoteCombinations(line([[{ groupId, optionId: brownId }]], [1]), 1, 800, groups, 1);
+      expect(unit.selections[0]).toMatchObject({ portionSizeId: null, portionName: null });
+      expect(unit.canonicalKey).toBe(createHash('sha256').update(JSON.stringify([[groupId, brownId]])).digest('hex'));
+    });
   });
 });

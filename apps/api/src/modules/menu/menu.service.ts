@@ -58,7 +58,12 @@ export class MenuService {
         const groups: MenuPreviewDish['groups'] = [];
         let invalidRequiredGroup = false;
         for (const group of dish.groups) {
-          const outputGroup: MenuPreviewDish['groups'][number] = { id: group.id, name: group.name, required: group.required, options: [] };
+          // Inactive sizes stop being sold; a portion group whose sizes are all inactive offers nothing.
+          const sizes = group.portionSizes.filter((entry) => entry.portionSize.active);
+          const usesPortions = group.portionSizes.length > 0;
+          const outputGroup: MenuPreviewDish['groups'][number] = { id: group.id, name: group.name, required: group.required,
+            portionSizes: sizes.map((entry) => ({ id: entry.portionSizeId, name: entry.portionSize.name })), options: [] };
+          if (usesPortions && !sizes.length) { if (group.required) invalidRequiredGroup = true; groups.push(outputGroup); continue; }
           for (const groupOption of group.options) {
             const option = groupOption.option;
             if (!option.active) continue;
@@ -67,6 +72,10 @@ export class MenuService {
             outputGroup.options.push({ id: option.id, name: option.name, priceMinor: optionPrice.amountMinor, source: optionPrice.source,
               allergyWarnings: option.allergens.filter((entry) => allergyIds.has(entry.referenceId)).map((entry) => entry.reference.name),
               dietaryTags: option.dietaryTags.map((entry) => entry.reference.name),
+              portions: sizes.flatMap((size) => {
+                const price = groupOption.portionPrices.find((entry) => entry.portionSizeId === size.portionSizeId);
+                return price ? [{ portionSizeId: size.portionSizeId, name: size.portionSize.name, surchargeMinor: price.surchargeMinor }] : [];
+              }),
             });
           }
           if (group.required && outputGroup.options.length === 0) invalidRequiredGroup = true;
