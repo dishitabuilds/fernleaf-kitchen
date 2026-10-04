@@ -8,7 +8,7 @@ The mandated stack is **Next.js + NestJS + Prisma**. This repository uses TypeSc
 
 Release takeover on **4 October 2026** started from clean public `main` at Antigravity's `fbfc992`. Phase 0-3 functionality and prior evidence were inspected; the initial regression passed 143 PostgreSQL/API tests, typecheck and production builds. The last known green clean-checkout CI is Phase 3 commit `33cf05b`; Antigravity `fbfc992` failed [CI](https://github.com/dishitabuilds/fernleaf-kitchen/actions/runs/37196720180). Antigravity added billing, staff management and dashboards but left 16 lint errors, no billing tests, an incorrect single-order invoice constraint, incomplete adjustment/idempotency behavior, inaccessible role summaries and no rolling review data.
 
-The current release work fixes those defects, preserves the established late-order and logistics policies, and adds realistic date-keyed fixtures and focused billing/security/browser checks. Implementation and verification are tracked in [release evidence](docs/release-verification.md), [billing evidence](docs/phase-4-release.md) and [fixture instructions](docs/demo-fixtures.md). The original assignment PDF/submission correspondence is absent and has **not** been read; the blueprint and `rules.md` remain the available requirement sources.
+The current release work fixes those defects, preserves the established late-order and logistics policies, and adds realistic date-keyed fixtures and focused billing/security/browser checks. Implementation and verification are tracked in [release evidence](docs/release-verification.md), [billing evidence](docs/phase-4-release.md) and [fixture instructions](docs/demo-fixtures.md). The original assignment PDF (`hiring-assignment-admin-panel.pdf`, kept locally and not committed) was read on 4 October for Phase 6; the blueprint and `rules.md` remain the execution sources.
 
 | Delivery record | Actual status |
 | --- | --- |
@@ -18,6 +18,7 @@ The current release work fixes those defects, preserves the established late-ord
 | **Live API** | **https://fernleaf-kitchen-api.onrender.com** · Render Free, Docker, PostgreSQL 17 |
 | API health | `{"status":"ok","database":"connected","service":"fernleaf-api"}` ✅ |
 | Deployed commit | `93c4991` on `main` — billing release, demo fixtures, dashboards, deployment config |
+| Phase 6 commits | `e408bc3` delivery photo, `4bf7556` portions, `9d50e0c` CSV import + this README: verified locally (see Tests). Render deploys after CI passes on push to `main` and Vercel deploys on push, so they are **live only once pushed and CI is green**; check the Actions run for the head commit. |
 | All four logins | admin / kitchen / dispatch / driver @ test.com with `Test@1234` verified on deployed API ✅ |
 | Permissions | Unauthenticated 401, Kitchen→Settings 403, production cookie `__Host-fernleaf_session` Secure/HttpOnly/SameSite=Lax ✅ |
 | Proxy rewrite | Vercel `/api/v1/health` → Render API health confirmed ✅ |
@@ -26,7 +27,7 @@ Normal commits, pushes and production deployment are explicitly authorised. New 
 
 ## Scope and four roles
 
-All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. The current request authorises completion and deployment of all Musts without stopping between phases. Unfinished portions, CSV import, delivery photos and decorative polish are deferred to protect release reliability and the deadline.
+All eleven blueprint functional areas are Musts. Portions and employee CSV import are explicit Shoulds. Delivery photo is optional within the required driver workflow. All three are now implemented (Phase 6): driver delivery photo, portions, then employee CSV import. Decorative polish remains deferred.
 
 | Role | Responsibility | Current surface |
 | --- | --- | --- |
@@ -257,6 +258,10 @@ erDiagram
     DISH ||--o{ MENU_ITEM : appears_in
     DISH ||--o{ DISH_OPTION_GROUP : defines
     DISH_OPTION_GROUP ||--o{ GROUP_OPTION : orders
+    DISH_OPTION_GROUP ||--o{ GROUP_PORTION_SIZE : sells_sizes
+    REFERENCE_VALUE ||--o{ GROUP_PORTION_SIZE : portion_size
+    GROUP_OPTION ||--o{ OPTION_PORTION_PRICE : surcharge
+    GROUP_PORTION_SIZE ||--o{ OPTION_PORTION_PRICE : per_size
     OPTION ||--o{ GROUP_OPTION : reused
     PRICE_TIER ||--o{ DISH_TIER_PRICE : prices
     DISH ||--o{ DISH_TIER_PRICE : has
@@ -291,6 +296,32 @@ Phase 1 enforces one non-null company per employee, normalized unique company do
 Two additive Phase 2 migrations contain orders, combinations, purchase/history/action records, cutoff policy dates, pending prep units and grouped drops. An order retains its original company independently of the employee's current company. Historical option/group IDs have no live-group foreign key, so replacing a catalogue group cannot erase a purchase. Immutable revision/event records have update protection; an insertion sequence resolves equal-timestamp timeline ordering. Actor/action keys deduplicate retries, and a composite drop foreign key enforces same-company membership. Backend and builder/browser gates pass.
 
 Phase 3 migration `20261004030000_phase_3_operations` adds preparation versions, actual drop kitchen readiness, DropEvent timeline and OperationalAction replay results; `20261004030500_operation_history_immutable` protects DropEvent against updates; `20261004031000_readiness_history_system_actor` allows automatic readiness events with no staff actor. All eight migrations passed on development, guarded integration-test and separate browser-test databases without resetting reviewer data. OperationalAction has unique `(actorId,key)` and binds the exact target/payload hash to a successful response; its historical actor ID is a scalar rather than a live-user foreign key. Prep/dispatch/Driver core behavior is implemented; both confirmed policies and final regression/browser checks pass. Invoices and rolling fixtures remain later phases. See [current architecture](docs/architecture.md), [lifecycle diagrams](docs/diagrams.md), [Phase 2 evidence](docs/phase-2.md) and [Phase 3 record](docs/phase-3.md).
+
+Phase 6 migrations: `20261004150000_delivery_photo` adds nullable `DeliveryDrop.photo` (bytea) and `photoMimeType` with a both-or-neither check. `20261004160000_option_portions` adds `GroupPortionSize` (group, size, order) and `OptionPortionPrice` (group, option, size, surcharge ≥ 0). Composite foreign keys tie each surcharge to the group's own `GroupOption` and `GroupPortionSize` rows. It also adds nullable `portionSizeId`/`portionName`/`portionSurchargeMinor` to `SelectionSnapshot`, with an all-or-nothing check.
+
+## Phase 6: portions, employee CSV import and delivery photo
+
+**Portions (4.1 Should).** Portion sizes are the admin-managed `PORTION_SIZE` reference list (seeded Regular, Large). In **Catalogue → Option groups**, a group may tick the sizes it sells. A group *uses portions exactly when it lists at least one size*, so there is no separate flag that could disagree. Saving a portion group is rejected (`GROUP_PORTIONS_INVALID`) unless **every option in it has a surcharge for every one of its sizes**. Surcharges for options or sizes outside the group are also rejected. Use 0.00 for "no extra charge".
+- Ordering: every selection in a portion group must name a size the option is priced in (`PORTION_REQUIRED` / `PORTION_INVALID`). A size on a selection in a group without portions is rejected (`PORTION_NOT_OFFERED`).
+- Price: selection price = option tier price + surcharge. Combination price = (dish price + Σ selection prices) × quantity, in bigint minor units.
+- History: the selection snapshot records size id, name and surcharge, so editing surcharges later never changes a past order. This is covered by a test.
+- Kitchen: the size is part of a combination's canonical key, so "Paneer · Regular" and "Paneer · Large" are separate prep units. Unportioned selections keep their original two-part key, so existing orders and prep units are unaffected.
+- Deactivated sizes: a deactivated size stops being sold. A portion group whose sizes are all inactive offers no options, so a *required* one hides the dish (`REQUIRED_GROUP_NO_PRICED_OPTION`).
+- Demo data: an optional **"Extra protein (choose a size)"** group (Paneer cubes / Smoked tofu, Large +$1.20 / +$1.00) on Paneer tikka bowl, Chickpea vegetable curry and Tofu stir fry. It installs idempotently on the next seed.
+
+*Interpretations:* "an extra charge on top of the option's own price" is read as **one flat surcharge per option × size, the same on every price tier**. Tier pricing still applies to the option itself. Surcharges are configured per group, so the same option can be sized differently on different dishes.
+
+**Employee CSV import (4.5 Should).** Go to **Employees → Import employees from CSV**, choose a company and a file. The API is `POST /api/v1/employees/import` with `{ companyId, csv, dryRun? }`, Admin only.
+- Header: `name` and `email` are required. Optional columns are `phone`, `can_choose_address`, `can_change_time`, `can_change_packaging` (yes/no, true/false or 1/0; blank = no), plus `allergens` and `dietary_tags` (reference names separated by `;`, case-insensitive). Header names are case-insensitive.
+- Row-level errors: each row is validated independently and reported by **physical line number** with every problem found (missing name, bad email, email already in the company, email repeated in the file, misspelled flag, unknown allergen/tag, too many cells). Valid rows are inserted together in one serializable transaction and invalid rows are skipped, so **one bad row never rejects the file**. *Check file* runs the same validation without writing anything.
+- Whole-file rejection: only a file that cannot be read as a table is rejected — empty, unknown or missing columns, duplicated column, unclosed quote, or more than 2,000 rows.
+- *Interpretations:* import **creates only**; it never updates an existing employee (the same email in that company is a row error), so re-running a file is safe. Employee emails are not required to match the company's domains, consistent with manual employee creation.
+
+**Driver delivery photo (4.8 optional).** On the stop screen the driver can add a photo with the phone camera (`capture="environment"`) together with the optional note.
+- Upload: the browser downsizes the image to at most 1600 px as JPEG before upload, to suit mobile data.
+- Validation: the API accepts only `image/jpeg|png|webp` data URLs whose **file signature matches** the declared type, at most 2 MB decoded (`PHOTO_INVALID` / `PHOTO_TOO_LARGE`). The JSON body limit is 3 MB.
+- Storage: bytes are stored with the drop and served from `GET /drops/:id/photo` (Dispatch/Admin) and `GET /driver/drops/:id/photo` (the assigned driver, own drops for today only; other drivers get 404). Drop responses carry only `hasPhoto`, so dispatch lists never load image data.
+- The delivery event records `hasPhoto` and the byte size. *Trade-off:* PostgreSQL storage avoids a second paid service on free hosting, at the cost of database size, which is bounded by the 2 MB limit and one photo per drop. Object storage would be the next step at real volume.
 
 ## Decisions and preserved business rules
 
@@ -362,16 +393,16 @@ Numbers follow the blueprint's PDF mapping; original-source verification is pend
 | --- | --- | --- | --- |
 | Accounts/access | Must / 0, 4 | Foundation implemented and locally verified | Current-role authentication plus staff CRUD, session revocation, last-Admin and assigned-Driver protection; release tests tracked separately |
 | 4.1 Catalogue/references | Must / 1, 2 | Locally verified | Fields/groups/references/retirement pass; Phase 2 purchase snapshots survive catalogue/group edits |
-| 4.1 Portions | Should / 6 | Deferred until Must gate | Complete group-wide size/surcharge matrix and snapshot tests |
+| 4.1 Portions | Should / 6 | Implemented and locally verified | Complete size × option surcharge matrix enforced on save; required/forbidden size per selection; exact pricing, snapshots and separate prep units; unit + API + browser checks |
 | 4.2 Menu | Must / 1 | Locally verified | Normal/direct previews apply activity/hiding/pricing/required options; API and browser checks pass |
 | 4.3 Pricing | Must / 1 | Locally verified | Exact tiers/matrix/overrides, no missing fallback, cycles and five-cent rounding; rule/API/browser/race checks pass |
 | 4.4 Companies | Must / 1 | Locally verified | Domains/addresses/billing/owner/defaults/calendars; FK/race/rollback and browser checks pass |
 | 4.5 Employees | Must / 1, 2 | Locally verified | One company/transfer/replacement owner/email/flags/allergy guidance; crafted order flag enforcement and stable original-company purchases pass |
-| 4.5 CSV import | Should / 6 | Deferred until Must gate | Partial success/row errors, duplicate policy and size limit |
+| 4.5 CSV import | Should / 6 | Implemented and locally verified | Partial success with per-line errors, dry run, in-file/company duplicate policy, 2,000-row limit; API + browser checks |
 | 4.6 Orders/cutoff | Must / 2 | Implemented and locally verified | Draft/place/edit/cancel/reject, combinations, accepted quotes/snapshots, shared cutoff, list/detail/timeline/filters/overrides; 24 order/15 cutoff/14 combination tests and six new browser cases pass |
 | 4.7 Kitchen | Must / 3 | Implemented and locally verified | 23 focused operational cases, full 143-test backend regression, three affected browser journeys and 400-order API/browser board evidence |
 | 4.8 Dispatch/Driver | Must / 3 | Implemented and locally verified | Ownership/today, ordered transitions, atomic delivery, races, correction/history and mobile travelling handover verified |
-| Delivery photo | Optional / 6 | Not started | Persistent storage if added; delivery works without photo |
+| Delivery photo | Optional / 6 | Implemented and locally verified | Validated JPEG/PNG/WebP ≤ 2 MB stored in PostgreSQL, served by scoped endpoints; delivery still works without a photo; phone-width browser check |
 | 4.9 Billing | Must / 4 | Implemented; release verification in progress | Multi-order claims, exact payment, internal credits, immutable billing snapshots and concurrency tests |
 | 4.10 Settings | Must / 0, 1, 2 | Locally verified | Kitchen policy/defaults/references/preview, unprocessed cutoff recomputation/catch-up and frozen processed policies; version/race/cross-timezone checks pass |
 | 4.11 Dashboards | Must / 4 | Four role summaries implemented | Definitions above; reconciliation and browser checks in release evidence |
@@ -388,7 +419,7 @@ Unfinished Should/optional work is deferred by the narrower authorised release s
 | 3 Fulfilment/delivery | Implemented and locally verified | Cross-role delivery, invalid/concurrent actions, phone journey and 400-order board pass; publication tracked separately |
 | 4 Billing/dashboards/staff | Implemented and deployed | Invoice races, original totals/credits, role-summary reconciliation and staff CRUD |
 | 5 Must release | **Deployed; verification in progress** | All Must acceptance checks pass on deployed app, including access/current data/400-order board |
-| 6 Should/optional | Not started; portions then CSV | Must regression suite remains green after each complete enhancement |
+| 6 Should/optional | Implemented and locally verified (photo, portions, CSV) | PASS: 171 integration tests, lint, typecheck and production build green after each enhancement; push/deploy pending as noted above |
 | 7 Review handoff | **In progress** | Deployment proof, accurate URLs, current-day data and two-week availability; form excluded by user |
 
 ## Interpretations and assumptions
@@ -398,6 +429,21 @@ Explicit requirements as represented in the blueprint include four accounts/role
 Implemented choices through Phase 1: PostgreSQL/pnpm/TypeScript; opaque sessions; USD from dollar examples; Asia/Kolkata kitchen zone; Admin configuration; 15-minute default risk threshold; public-provider denylist without ownership verification; company-scoped normalized employee email; calendar arrays; typed reference table; allergy/preference guidance as warnings. Phase 2 user-confirmed choices: reasoned late placement with accepted quote/immediate due confirmation; transfer-blocked placed purchase editing; exactly one option per required group and zero/one per optional group; duplicate dish lines rejected; ordinary saved company addresses, with custom addresses requiring a separate reasoned Admin override. Phase 3 interprets departed address/time corrections as drop-wide, preserves original punctuality and uses the earliest member planned deadline for mixed captured travel times. The user additionally confirmed packaging invalidation/after-departure locking and reasoned Admin reassignment of travelling Drivers; their implementation and applicable checks pass. These are documented interpretations/decisions, not extra wording attributed to the missing assignment PDF. Internal billing credits and tier-independent portion surcharges remain later-phase interpretations. Changes need documented reasons and evidence.
 
 ## Tests and actual evidence
+
+**Phase 6 (4 October 2026, Node 24.10.0, PostgreSQL 16 local):**
+- `pnpm lint`: PASS (0 warnings).
+- `pnpm typecheck`: PASS.
+- `pnpm build`: PASS.
+- `pnpm test`: PASS, **171 tests in 13 suites**, up from 163, including:
+  - `combinations.spec` portion pricing, required/forbidden size and the stable legacy key;
+  - `should-features.spec`, covering the portion matrix validation and Admin-only access, menu preview sizes, quote/snapshot/total reconciliation, unchanged totals after a surcharge edit, separate Regular/Large prep units, the CSV parser (quotes, CRLF, BOM), a mixed valid/invalid file with dry run, re-import safety and whole-file rejection cases;
+  - `billing-release.spec` delivery photo validation (SVG and type-mismatched bytes rejected), byte-exact serving and role scoping.
+- Browser smoke on local production builds:
+  - the driver at 390 px delivered a stop with a note and a camera-size photo, which was resized to 1600 px and displayed;
+  - the Admin portion editor showed the demo protein group with its surcharge matrix;
+  - a CSV import created 1 row and listed 2 line errors.
+- *Not run here:* the Playwright e2e suite and the deployed-app smoke for Phase 6.
+
 
 Results recorded on 3–4 October 2026. The first table preserves the verified **Phase 0** baseline; it is not a claim that those same commands passed after later changes. Current-phase evidence follows separately. No future business-rule test or deployment is counted as passed.
 
@@ -472,8 +518,9 @@ Phase 1 Admin walkthrough:
 2. Open **Pricing** at `/pricing`: select **Standard** in the matrix to see explicit dish/option prices and the deliberately missing soup price. Select **Cost plus 15%** to see the rice dish's 211-cent cost resolve to 245 cents through exact derivation and upward five-cent rounding. An explicit override of 211 cents remains 211; clearing an override restores the tier rule or missing status.
 3. Open **Menu** at `/menu`, choose employee preview and the demo employee. Standard shows the priced rice box; the unpriced soup is excluded with a diagnostic. Use the Chef's preview direct category link to see its priced secret dish. Secret links still respect company hiding. Categories/items can be created, ordered, edited and retired here.
 4. Open **Companies** at `/companies`: edit billing, calendar, price tier, packaging/driver/default address and hidden categories/items. Selecting **Company manual** demonstrates a missing company-tier price without fallback. Refresh employee preview after changing restrictions. Add a company with its initial employee owner and full address; duplicate/public domains and owners from another company are rejected.
-5. Open **Employees** at `/employees`: configure allergy/preference guidance and delivery choice flags. Transfer an employee using the dedicated action; an owner requires a replacement from the source company. A conflicting normalized target email rolls back the transfer and replacement.
-6. Open **Settings** at `/settings`: edit kitchen working days, holidays, cutoff time/count, default tier and risk minutes; save and refresh. Preview 7 October 2026 with two days and 16:00: weekdays give 5 October 16:00 IST; adding the kitchen holiday 5 October gives 2 October 16:00 IST. A company's holiday affects delivery eligibility without shifting that cutoff. A stale browser save returns a reload-required conflict.
+5. Open **Catalogue → Option groups** on *Paneer tikka bowl* to see the portion group (Regular/Large surcharges); create an order for it and choose "Paneer cubes (review) · Large" to see the surcharge in the breakdown and a separate kitchen unit. On **Employees**, use **Import employees from CSV** (template shown in the panel) to see per-line errors. As the Driver, add a photo when marking a stop delivered.
+6. Open **Employees** at `/employees`: configure allergy/preference guidance and delivery choice flags. Transfer an employee using the dedicated action; an owner requires a replacement from the source company. A conflicting normalized target email rolls back the transfer and replacement.
+7. Open **Settings** at `/settings`: edit kitchen working days, holidays, cutoff time/count, default tier and risk minutes; save and refresh. Preview 7 October 2026 with two days and 16:00: weekdays give 5 October 16:00 IST; adding the kitchen holiday 5 October gives 2 October 16:00 IST. A company's holiday affects delivery eligibility without shifting that cutoff. A stale browser save returns a reload-required conflict.
 
 Phase 2 Admin walkthrough:
 
@@ -532,6 +579,9 @@ Current review data adds three companies, 24 employees, 12 dishes and reusable o
 [Deployment runbook](docs/deployment.md) | [Review handoff](docs/review-handoff.md) | [Demo fixtures](docs/demo-fixtures.md)
 
 ## Resume point and next phase
+
+Phase 6 (delivery photo, portions, CSV import) is committed and locally verified. Next: push `main`, confirm the CI run and the Render/Vercel deploys, then smoke-test the three features on the live app. With more time: object storage for photos, CSV update-or-create mode with an explicit diff preview, and per-tier portion surcharges if the business needs them.
+
 
 Deployment is live at the URLs above. Remaining verification: browser login flow on all four accounts, operational Kitchen→Dispatch→Driver flow on the deployed app, billing/credits workflow, and current-day fixture confirmation. The hiring form has not been submitted.
 
