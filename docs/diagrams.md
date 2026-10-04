@@ -1,6 +1,6 @@
 # Architecture and lifecycle diagrams
 
-Authentication, Phase 1 configuration and **Phase 2's local order/cutoff acceptance gate are verified**. The registered services and create/edit/list/detail/action UI implement the user's confirmed Option A policy. The registered backend passed all 118 tests / seven suites; all 20 production-build browser tests, lint/type-check/build and the rebuilt API image's local production-mode order/confirmation/replay smoke passed. Phase 3 preparation/dispatch/driver actions are **in progress**, with [their diagrams and open gate](phase-3.md) tracked separately until implementation and checks pass. Phase 4 billing remains planned. Hosted verification remains blocked by hosting access; the original assignment/submission sources remain absent. See [architecture details](architecture.md), [README evidence and Git status](../README.md), [Phase 2 evidence](phase-2.md) and the [blueprint](../Heizen-Implementation-Blueprint.md).
+The current application includes configuration, orders/cutoffs, kitchen, grouped dispatch/Driver, billing/credits, staff management, role summaries and rolling review fixtures. Release fixes and actual checks are tracked in [release verification](release-verification.md), [billing evidence](phase-4-release.md), [demo jobs](demo-fixtures.md) and [deployment record](deployment.md). Historical phase evidence below describes its original checkpoint; live verification is a separate gate.
 
 ## Phase 0 authentication and HTTP boundary
 
@@ -62,13 +62,13 @@ erDiagram
 
 An order retains its captured company even when the employee transfers. Purchase snapshots and unique order/version revisions preserve company/delivery/dish/options/quantities/prices; current logistics can change separately. Dish remains a restricted live FK, while menu item, selection group/option/tier and prep-station IDs are historical scalars without live FKs. Historical actor IDs also remain scalars, with event actor names captured. Replacing a catalogue group therefore cannot erase past selections. Events sort by timestamp and a unique increasing sequence, keeping same-millisecond placement/confirmation history stable.
 
-One canonical combination on its original line creates one unique prep unit at confirmation; equal combinations on different orders remain separate work. Drops group by company, normalized actual address and exact UTC delivery instant. Address label/ID, employee and packaging are not grouping keys. The composite order/drop/company FK prevents cross-company membership. Invoice membership and credits are not in the schema yet; their planned relationship is shown below.
+One canonical combination on its original line creates one unique prep unit at confirmation; equal combinations on different orders remain separate work. Drops group by company, normalized actual address and exact UTC delivery instant. Address label/ID, employee and packaging are not grouping keys. The composite order/drop/company FK prevents cross-company membership. Invoice membership and credits are persisted; their relationship is shown below.
 
 ```mermaid
 erDiagram
-    COMPANY ||--o{ INVOICE : future_billing
-    INVOICE o|--|{ ORDER : future_unique_membership
-    INVOICE ||--o{ BILLING_CREDIT : future_adjustments
+    COMPANY ||--o{ INVOICE : captured_billing
+    INVOICE o|--|{ ORDER : immutable_membership
+    INVOICE ||--o{ BILLING_CREDIT : internal_adjustments
 ```
 
 ## Implemented and locally verified quote and mutation sequence

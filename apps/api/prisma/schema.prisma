@@ -432,7 +432,7 @@ model Order {
   deliveredAt            DateTime?          @db.Timestamptz(3)
   kitchenStartedAt       DateTime?          @db.Timestamptz(3)
   kitchenReadyAt         DateTime?          @db.Timestamptz(3)
-  invoiceId              String?            @unique @db.Uuid
+  invoiceId              String?            @db.Uuid
   invoice                Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   createdAt              DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
@@ -627,6 +627,7 @@ model Invoice {
   number           Int             @unique @default(autoincrement())
   companyId        String          @db.Uuid
   company          Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  companySnapshot  Json            @default("{}")
   totalMinor       Int
   paidAmountMinor  Int             @default(0)
   issuedAt         DateTime        @default(now()) @db.Timestamptz(3)

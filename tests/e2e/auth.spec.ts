@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const accounts = [
-  { role: 'Admin', email: 'admin@test.com', path: '/dashboard', title: 'Operations overview' },
-  { role: 'Kitchen', email: 'kitchen@test.com', path: '/kitchen', title: 'Kitchen workspace' },
-  { role: 'Dispatch', email: 'dispatch@test.com', path: '/dispatch', title: 'Dispatch workspace' },
-  { role: 'Driver', email: 'driver@test.com', path: '/today', title: 'Your delivery day' },
+  { role: 'Admin', email: 'admin@test.com', path: '/dashboard', title: 'Operations overview', metric: 'Committed orders today' },
+  { role: 'Kitchen', email: 'kitchen@test.com', path: '/kitchen', title: 'Kitchen workspace', metric: 'Units remaining' },
+  { role: 'Dispatch', email: 'dispatch@test.com', path: '/dispatch', title: 'Dispatch workspace', metric: 'Waiting for kitchen' },
+  { role: 'Driver', email: 'driver@test.com', path: '/today', title: 'Your delivery day', metric: 'My drops today' },
 ];
 
 async function login(page: Page, email: string) {
@@ -19,6 +19,7 @@ for (const account of accounts) {
     await login(page, account.email);
     await expect(page).toHaveURL(new RegExp(`${account.path}$`));
     await expect(page.getByRole('heading', { name: account.title, exact: true })).toBeVisible();
+    await expect(page.getByText(account.metric, { exact: true })).toBeVisible();
     await expect(page.getByText('Kitchen service connected', { exact: true })).toBeVisible();
     await expect(page.getByText(account.email, { exact: true })).toBeVisible();
     await page.reload();

@@ -9,6 +9,7 @@ export interface ApiConfig {
   port: number;
   production: boolean;
   sessionTtlHours: number;
+  maintenanceToken?: string;
 }
 
 export function readConfig(): ApiConfig {
@@ -18,6 +19,7 @@ export function readConfig(): ApiConfig {
   const port = Number(process.env.PORT ?? '3001');
   const sessionTtlHours = Number(process.env.SESSION_TTL_HOURS ?? '12');
   const production = process.env.NODE_ENV === 'production';
+  const maintenanceToken = process.env.MAINTENANCE_TOKEN || undefined;
   if (!databaseUrl || !/^postgres(ql)?:\/\//.test(databaseUrl)) {
     throw new Error('DATABASE_URL must contain a PostgreSQL connection URL.');
   }
@@ -34,5 +36,8 @@ export function readConfig(): ApiConfig {
   if (!Number.isInteger(sessionTtlHours) || sessionTtlHours < 1 || sessionTtlHours > 168) {
     throw new Error('SESSION_TTL_HOURS must be an integer between 1 and 168.');
   }
-  return { databaseUrl, webOrigin, port, production, sessionTtlHours };
+  if (maintenanceToken && (maintenanceToken.length < 32 || maintenanceToken.length > 512 || /\s/.test(maintenanceToken))) {
+    throw new Error('MAINTENANCE_TOKEN must contain 32 to 512 characters without whitespace, or remain unset to disable external jobs.');
+  }
+  return { databaseUrl, webOrigin, port, production, sessionTtlHours, maintenanceToken };
 }

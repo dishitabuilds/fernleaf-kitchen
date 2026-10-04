@@ -4,7 +4,9 @@ import { seedConfiguration } from '../../apps/api/prisma/seed-configuration';
 
 export async function clearConfiguration(prisma: PrismaClient): Promise<void> {
   await prisma.operationalAction.deleteMany();
+  await prisma.billingCredit.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.invoice.deleteMany();
   await prisma.deliveryDrop.deleteMany();
   await prisma.deliveryDateCutoff.deleteMany();
   await prisma.company.updateMany({data:{ownerEmployeeId:null,defaultAddressId:null}});

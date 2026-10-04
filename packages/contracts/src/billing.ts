@@ -1,8 +1,10 @@
 import type { PageResponse } from './configuration';
+import type { CompanyPurchaseSnapshot } from './orders';
 
 export interface InvoiceOrderSummary {
   id: string; number: number; employeeName: string; deliveryDate: string;
   totalMinor: number; status: string;
+  company: CompanyPurchaseSnapshot;
 }
 
 export interface InvoiceSummary {
@@ -18,6 +20,7 @@ export interface BillingCreditResponse {
 }
 
 export interface InvoiceDetail extends InvoiceSummary {
+  company: CompanyPurchaseSnapshot;
   orders: InvoiceOrderSummary[];
   credits: BillingCreditResponse[];
 }
@@ -76,6 +79,7 @@ export interface DispatchDashboardResponse {
 
 export interface DriverDashboardResponse {
   totalDrops: number; completedDrops: number; onTimeCount: number;
+  timedCompletedDrops: number; missingTimingCount: number;
   nextDrop: { id: string; companyName: string; deliveryAt: string; address: string } | null;
 }
 

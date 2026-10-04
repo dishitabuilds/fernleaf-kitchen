@@ -15,7 +15,7 @@ function formatMoney(minor: number): string {
 function AdminDashboard({ data }: { data: AdminDashboardResponse }) {
   return <div className="dashboard-grid">
     <Card className="stat-card"><div className="stat-label">Committed orders today</div><div className="stat-value">{data.todayOrders}</div><div className="stat-detail">{data.todayMeals} meals · {data.draftCount} draft · {data.placedCount} placed</div></Card>
-    <Card className="stat-card"><div className="stat-label">Uninvoiced value</div><div className="stat-value">{formatMoney(data.uninvoicedTotalMinor)}</div><Link href="/orders?invoiced=false&status=CONFIRMED" className="stat-link">View uninvoiced orders →</Link></Card>
+    <Card className="stat-card"><div className="stat-label">Uninvoiced value · all dates</div><div className="stat-value">{formatMoney(data.uninvoicedTotalMinor)}</div><Link href="/orders?invoiced=false&billable=true" className="stat-link">View uninvoiced orders →</Link></Card>
     <Card className="stat-card"><div className="stat-label">Outstanding balance</div><div className="stat-value">{formatMoney(data.outstandingBalanceMinor)}</div>{data.companyCreditMinor > 0 && <div className="stat-detail">{formatMoney(data.companyCreditMinor)} company credit</div>}<Link href="/billing" className="stat-link">View invoices →</Link></Card>
     <div className="configuration-links">
       {[
@@ -52,15 +52,15 @@ function DispatchDashboard({ data }: { data: DispatchDashboardResponse }) {
 }
 
 function DriverDashboard({ data }: { data: DriverDashboardResponse }) {
-  const onTimeRatio = data.completedDrops > 0 ? `${data.onTimeCount}/${data.completedDrops}` : 'N/A';
+  const onTimeRatio = data.timedCompletedDrops > 0 ? `${data.onTimeCount}/${data.timedCompletedDrops}` : 'N/A';
   return <div className="dashboard-grid">
     <Card className="stat-card"><div className="stat-label">My drops today</div><div className="stat-value">{data.totalDrops}</div><div className="stat-detail">{data.completedDrops} completed</div></Card>
-    <Card className="stat-card"><div className="stat-label">On-time ratio</div><div className="stat-value">{onTimeRatio}</div><div className="stat-detail">{data.completedDrops === 0 ? 'No deliveries yet' : 'Among delivered drops'}</div></Card>
+    <Card className="stat-card"><div className="stat-label">On-time ratio</div><div className="stat-value">{onTimeRatio}</div><div className="stat-detail">Among delivered drops with timing · {data.missingTimingCount} missing timing</div></Card>
     {data.nextDrop && <Card className="stat-card accent"><div className="stat-label">Next stop</div><div className="stat-value">{data.nextDrop.companyName}</div><div className="stat-detail">{data.nextDrop.address}</div><Link href={`/today`} className="stat-link">Open route →</Link></Card>}
   </div>;
 }
 
-export function RoleDashboard() {
+export function RoleDashboard({ compact = false, date }: { compact?: boolean; date?: string }) {
   const { session } = useSession();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,20 +68,20 @@ export function RoleDashboard() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    apiRequest<DashboardResponse>('/dashboard').then((result) => {
+    const path = `/dashboard${date ? `?date=${encodeURIComponent(date)}` : ''}`;
+    apiRequest<DashboardResponse>(path).then((result) => {
       if (active) { setData(result); setError(null); }
     }).catch((failure) => {
       if (active) setError(errorMessage(failure));
     }).finally(() => { if (active) setLoading(false); });
     // Refresh every 30 seconds
     const interval = setInterval(() => {
-      apiRequest<DashboardResponse>('/dashboard').then((result) => {
+      apiRequest<DashboardResponse>(path).then((result) => {
         if (active) { setData(result); setError(null); }
-      }).catch(() => {});
+      }).catch((failure) => { if (active) setError(errorMessage(failure)); });
     }, 30000);
     return () => { active = false; clearInterval(interval); };
-  }, []);
+  }, [date]);
 
   if (loading) return <div className="page-state" role="status"><span className="loading-ring" />Loading dashboard…</div>;
   if (error) return <div className="page-state" role="alert">{error}</div>;
@@ -90,7 +90,8 @@ export function RoleDashboard() {
   const roleLabel = session.user.role === 'ADMIN' ? 'Operations overview' : session.user.role === 'KITCHEN' ? 'Kitchen workspace' : session.user.role === 'DISPATCH' ? 'Dispatch workspace' : 'Your delivery day';
 
   return <>
-    <div className="page-heading"><div><div className="eyebrow">{session.user.role} DASHBOARD</div><h1>{roleLabel}</h1></div><span className="phase-badge">Phase 4</span></div>
+    {!compact && <div className="page-heading"><div><div className="eyebrow">{session.user.role} DASHBOARD</div><h1>{roleLabel}</h1></div></div>}
+    {compact && <p>Role summary · {date ?? 'today'} · Asia/Kolkata</p>}
     {data.role === 'ADMIN' && <AdminDashboard data={data.data} />}
     {data.role === 'KITCHEN' && <KitchenDashboard data={data.data} />}
     {data.role === 'DISPATCH' && <DispatchDashboard data={data.data} />}

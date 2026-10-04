@@ -3,7 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { seedUsers } from './seed-users';
 import { seedConfiguration } from './seed-configuration';
-import { seedBilling } from './seed-billing';
+import { seedDemoFixtures } from '../src/modules/demo/demo-fixtures';
 
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
@@ -12,8 +12,9 @@ async function main(): Promise<void> {
   try {
     await seedUsers(prisma);
     await seedConfiguration(prisma);
-    await seedBilling(prisma);
-    console.log('Demo staff, Phase 1 configuration, and billing data are present. Existing records were preserved.');
+    const fixtures = await seedDemoFixtures(prisma);
+    console.log(JSON.stringify({ event: 'demo_seed_completed', ...fixtures }));
+    console.log('Demo staff, configuration, dated operations and fixture-only billing are present. Existing records were preserved.');
   } finally {
     await prisma.$disconnect();
   }

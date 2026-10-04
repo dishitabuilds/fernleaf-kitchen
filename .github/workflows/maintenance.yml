@@ -1,0 +1,27 @@
+name: Review deployment maintenance
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+permissions: {}
+concurrency:
+  group: review-deployment-maintenance
+  cancel-in-progress: false
+jobs:
+  maintain:
+    if: vars.FERNLEAF_MAINTENANCE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Run authenticated cutoff and review-date catch-up
+        env:
+          JOB_URL: ${{ vars.FERNLEAF_MAINTENANCE_URL }}
+          WEB_ORIGIN: ${{ vars.FERNLEAF_WEB_ORIGIN }}
+          JOB_TOKEN: ${{ secrets.FERNLEAF_MAINTENANCE_TOKEN }}
+        run: |
+          test -n "$JOB_TOKEN" && test -n "$WEB_ORIGIN"
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            --retry 2 --retry-delay 10 --retry-all-errors \
+            --request POST --header "Authorization: Bearer $JOB_TOKEN" \
+            --header "Origin: $WEB_ORIGIN" --header 'Content-Type: application/json' \
+            --data '{}' "$JOB_URL"

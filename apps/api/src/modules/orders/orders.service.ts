@@ -32,8 +32,11 @@ export class OrdersService {
     // Invoice filter uses the real invoiceId column added in Phase 4.
     const invoiceFilter: Prisma.OrderWhereInput = query.invoiced === 'true' ? { invoiceId: { not: null } }
       : query.invoiced === 'false' ? { invoiceId: null } : {};
+    const billableFilter: Prisma.OrderWhereInput = query.billable === 'true'
+      ? { status: { in: ['CONFIRMED', 'DELIVERED'] }, totalMinor: { not: null } } : {};
     const where: Prisma.OrderWhereInput = {
       ...invoiceFilter,
+      AND: [billableFilter],
       ...(query.companyId ? { companyId: query.companyId } : {}), ...(query.status ? { status: query.status } : {}),
       ...(query.from || query.to ? { deliveryDate: { gte: query.from, lte: query.to } } : {}),
       ...(query.q ? { OR: [
@@ -195,7 +198,7 @@ export class OrdersService {
     this.assertVersion(order, dto.version);
     if (target === 'REJECTED' && order.status !== 'PLACED') throw new ApiError(409, 'ORDER_NOT_PLACED', 'Only a placed order can be rejected. Confirmed orders can be explicitly cancelled.');
     if (target === 'CANCELLED' && !['DRAFT', 'PLACED', ...(override ? ['CONFIRMED'] : [])].includes(order.status)) {
-      throw new ApiError(409, 'ORDER_LOCKED', 'This order cannot be cancelled. Delivered orders retain their delivery history; billing credits are added in Phase 4.');
+      throw new ApiError(409, 'ORDER_LOCKED', 'This order cannot be cancelled. Delivered orders retain their delivery history; record a reasoned shortage credit through Billing.');
     }
     if (!override) this.assertOrdinaryOpen(order);
     const now = this.clock.now();
@@ -204,6 +207,20 @@ export class OrdersService {
     } });
     if (!changed.count) throw new ApiError(409, 'STALE_VERSION', 'This order changed. Reload before trying again.');
     if (order.status === 'CONFIRMED') await this.cutoffs.detachCancelled(tx, order.id, order.dropId, actor, dto.reason);
+    // Keep issued membership and gross historical. The credit commits with the
+    // cancellation and its idempotent response, including concurrent retries.
+    if (target === 'CANCELLED' && order.invoiceId) {
+      if (order.totalMinor === null) throw new ApiError(409, 'BILLING_INCONSISTENT', 'This invoiced order is missing its purchased amount. Review Billing before cancelling.');
+      const existing = await tx.billingCredit.aggregate({ where: { orderId: order.id }, _sum: { amountMinor: true } });
+      const amountMinor = order.totalMinor - (existing._sum.amountMinor ?? 0);
+      if (amountMinor < 0) throw new ApiError(409, 'BILLING_INCONSISTENT', 'Existing credits exceed the purchased amount. Review Billing before cancelling.');
+      if (amountMinor > 0) {
+        const credit = await tx.billingCredit.create({ data: { invoiceId: order.invoiceId, orderId: order.id,
+          amountMinor, reason: dto.reason, actionKey: `cancel:${actor.id}:${dto.actionId}` } });
+        await this.event(tx, order.id, actor, `billing:${dto.actionId}`, 'BILLING_CREDIT_CREATED', dto.reason,
+          { invoiceId: order.invoiceId, creditId: credit.id, amountMinor, policy: 'INVOICED_CANCELLATION' });
+      }
+    }
     await this.event(tx, order.id, actor, dto.actionId, override ? `ADMIN_OVERRIDE_${target}` : target, dto.reason,
       { previousStatus: order.status, purchaseTotalMinor: order.totalMinor, previousDropId: order.dropId,
         kitchenStartedAt: order.kitchenStartedAt?.toISOString() ?? null, kitchenReadyAt: order.kitchenReadyAt?.toISOString() ?? null });

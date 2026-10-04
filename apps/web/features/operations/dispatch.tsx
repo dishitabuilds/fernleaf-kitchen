@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Pagination, textValue } from '@/features/configuration/common';
 import { kitchenToday, OperationsConnection, OperationsHeading, OperationsState, RiskLabel, stateLabel, timeLabel, useOperationsResource } from './common';
 import styles from './operations.module.css';
+import { RoleDashboard } from '@/features/workspace/role-dashboard';
 
 export function DispatchScreen({ initialDate }: { initialDate?: string }) {
   const [filters, setFilters] = useState(() => ({ date: initialDate ?? kitchenToday(), status: '' }));
@@ -16,6 +17,7 @@ export function DispatchScreen({ initialDate }: { initialDate?: string }) {
   if (filters.status) query.set('status', filters.status);
   const resource = useOperationsResource<DeliveryDropPage>(`/drops?${query}`);
   return <><OperationsHeading title="Dispatch workspace" description="Keep meals travelling together to the same company, physical address and delivery time. Each card is one delivery group." />
+    <RoleDashboard key={filters.date} compact date={filters.date} />
     <div className={styles.toolbar}><Button variant="secondary" onClick={resource.refresh}>Refresh dispatch</Button><Button variant="ghost" onClick={() => { setFilters({ date: kitchenToday(), status: '' }); setPage(1); }}>Show dispatch today</Button></div>
     <Card className={styles.card}><h2>Find delivery groups</h2><form aria-label="Filter dispatch" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); setFilters({ date: textValue(form, 'date'), status: textValue(form, 'status') }); setPage(1); }}><div className="form-grid">
       <label className="form-field" htmlFor="dispatch-date">Delivery date<input id="dispatch-date" name="date" type="date" required value={filters.date} onChange={(event) => { setFilters((value) => ({ ...value, date: event.target.value })); setPage(1); }} /></label>

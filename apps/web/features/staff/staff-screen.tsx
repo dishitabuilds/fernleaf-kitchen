@@ -10,7 +10,6 @@ import { apiRequest, errorMessage } from '@/lib/http';
 import { useSession } from '@/features/auth/session-provider';
 
 export function StaffScreen() {
-  const { session } = useSession();
   const [staff, setStaff] = useState<StaffUserResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -20,7 +19,6 @@ export function StaffScreen() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const result = await apiRequest<StaffPage>(`/staff?page=${page}&pageSize=25`);
       setStaff(result.items); setTotal(result.total); setError(null);
@@ -28,7 +26,13 @@ export function StaffScreen() {
     finally { setLoading(false); }
   }, [page]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    apiRequest<StaffPage>(`/staff?page=${page}&pageSize=25`).then((result) => {
+      if (active) { setStaff(result.items); setTotal(result.total); setError(null); }
+    }).catch((failure) => { if (active) setError(errorMessage(failure)); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [page]);
 
   if (showCreate) return <StaffForm onBack={() => { setShowCreate(false); void load(); }} />;
   if (editId) return <StaffForm id={editId} onBack={() => { setEditId(null); void load(); }} />;

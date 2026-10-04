@@ -3,7 +3,7 @@ import type { StaffPage, StaffUserResponse } from '@fernleaf/contracts';
 import { ApiError } from '../../common/api-error';
 import { PrismaService } from '../../database/prisma.service';
 import { hashPassword } from '../auth/password';
-import { translateDatabaseError } from '../../common/transaction';
+import { serializable, translateDatabaseError } from '../../common/transaction';
 import type { CreateStaffDto, StaffQueryDto, UpdateStaffDto } from './staff.dto';
 import type { StaffRole } from '../../generated/prisma/client';
 
@@ -54,23 +54,30 @@ export class StaffService {
   }
 
   async update(id: string, dto: UpdateStaffDto): Promise<StaffUserResponse> {
-    const existing = await this.prisma.staffUser.findUnique({ where: { id }, select: { id: true } });
-    if (!existing) throw new ApiError(404, 'NOT_FOUND', 'Staff member not found.');
     const data: Record<string, unknown> = {};
     if (dto.displayName !== undefined) data.displayName = dto.displayName;
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.active !== undefined) data.active = dto.active;
     if (dto.password) data.passwordHash = await hashPassword(dto.password);
-    // If deactivating, also expire all sessions
-    if (dto.active === false) {
-      await this.prisma.session.deleteMany({ where: { userId: id } });
-    }
     try {
-      const user = await this.prisma.staffUser.update({
-        where: { id }, data,
-        select: { id: true, email: true, displayName: true, role: true, active: true, createdAt: true },
+      return await serializable(this.prisma, async (tx) => {
+        const existing = await tx.staffUser.findUnique({ where: { id } });
+        if (!existing) throw new ApiError(404, 'NOT_FOUND', 'Staff member not found.');
+        if (existing.active && existing.role === 'ADMIN' && (dto.active === false || (dto.role && dto.role !== 'ADMIN')) &&
+          await tx.staffUser.count({ where: { active: true, role: 'ADMIN', id: { not: id } } }) === 0) {
+          throw new ApiError(409, 'LAST_ADMIN', 'Keep at least one active Admin account.');
+        }
+        if (existing.role === 'DRIVER' && (dto.active === false || (dto.role && dto.role !== 'DRIVER'))) {
+          const [companies, drops] = await Promise.all([
+            tx.company.count({ where: { defaultDriverId: id } }),
+            tx.deliveryDrop.count({ where: { driverId: id, status: { not: 'DELIVERED' }, orders: { some: { status: 'CONFIRMED' } } } }),
+          ]);
+          if (companies || drops) throw new ApiError(409, 'DRIVER_IN_USE', 'Reassign company defaults and active delivery drops before deactivating or changing this Driver role.');
+        }
+        const user = await tx.staffUser.update({ where: { id }, data, select: { id: true, email: true, displayName: true, role: true, active: true, createdAt: true } });
+        if (dto.active === false || dto.password || (dto.role !== undefined && dto.role !== existing.role)) await tx.session.deleteMany({ where: { userId: id } });
+        return this.toResponse(user);
       });
-      return this.toResponse(user);
     } catch (error) {
       translateDatabaseError(error);
     }

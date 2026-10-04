@@ -39,22 +39,24 @@ import { StaffController } from './modules/staff/staff.controller';
 import { StaffService } from './modules/staff/staff.service';
 import { DashboardController } from './modules/dashboard/dashboard.controller';
 import { DashboardService } from './modules/dashboard/dashboard.service';
+import { DemoScheduler } from './modules/demo/demo.scheduler';
+import { JobsController } from './modules/jobs/jobs.controller';
+import { JobsService } from './modules/jobs/jobs.service';
 
 @Module({})
 export class AppModule {
   static register(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController, BillingController, StaffController, DashboardController],
+      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController, BillingController, StaffController, DashboardController, JobsController],
       providers: [
         { provide: API_CONFIG, useValue: config },
         { provide: ORDER_QUOTE_POLICY, useValue: {
           maximumSelectionsPerGroup: 1, ordinaryCustomAddresses: false, rejectDuplicateDishLines: true,
         } satisfies QuotePolicy },
-        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService, OperationsAction, KitchenService, DropsService, BillingService, StaffService, DashboardService,
+        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService, OperationsAction, KitchenService, DropsService, BillingService, StaffService, DashboardService, DemoScheduler, JobsService,
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
     };
   }
 }
-

@@ -9,6 +9,7 @@ import { useSession } from '@/features/auth/session-provider';
 import { Pagination, textValue } from '@/features/configuration/common';
 import { kitchenToday, OperationsConnection, OperationsFeedback, OperationsHeading, OperationsState, RiskLabel, stateLabel, timeLabel, useOperationsMutation, useOperationsResource } from './common';
 import styles from './operations.module.css';
+import { RoleDashboard } from '@/features/workspace/role-dashboard';
 
 export function KitchenBoardScreen({ initialDate }: { initialDate?: string }) {
   const [filters, setFilters] = useState(() => ({ date: initialDate ?? kitchenToday(), stationId: '', status: '' }));
@@ -18,6 +19,7 @@ export function KitchenBoardScreen({ initialDate }: { initialDate?: string }) {
   if (filters.status) query.set('status', filters.status);
   const resource = useOperationsResource<KitchenBoardResponse>(`/kitchen?${query}`);
   return <><OperationsHeading title="Kitchen workspace" description="Prepare confirmed meals one combination at a time. Station, choices and allergen guidance come from the recorded purchase." />
+    <RoleDashboard key={filters.date} compact date={filters.date} />
     <div className={styles.toolbar}><Button variant="secondary" onClick={resource.refresh}>Refresh kitchen</Button><Button variant="ghost" onClick={() => { setFilters({ date: kitchenToday(), stationId: '', status: '' }); setPage(1); }}>Show kitchen today</Button></div>
     <Card className={styles.card}><h2>Find preparation work</h2><form aria-label="Filter kitchen work" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); setFilters({ date: textValue(form, 'date'), stationId: textValue(form, 'stationId'), status: textValue(form, 'status') }); setPage(1); }}><div className="form-grid">
       <label className="form-field" htmlFor="kitchen-date">Delivery date<input id="kitchen-date" name="date" type="date" required value={filters.date} onChange={(event) => { setFilters((value) => ({ ...value, date: event.target.value })); setPage(1); }} /></label>
