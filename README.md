@@ -14,10 +14,13 @@ The current release work fixes those defects, preserves the established late-ord
 | --- | --- |
 | Repository | [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), public verified 4 October |
 | Branch / remote at takeover | `main`; remote matched `fbfc992c7aa77849f82d6e220e4aef2ac789e53b` |
-| Release local checks | In progress; see dated results below and release evidence |
-| Release commit/push/CI | Pending final release checkpoint; prior pushes are historical evidence |
-| Web/API live URLs | Pending deployment; no production workflow verification claimed |
-| Hosting access | Vercel signed in; Railway expired trial; Render sign-in approval pending |
+| **Live web** | **https://fernleaf-kitchen-pied.vercel.app** · Vercel Hobby, Next.js, commit `93c4991` |
+| **Live API** | **https://fernleaf-kitchen-api.onrender.com** · Render Free, Docker, PostgreSQL 17 |
+| API health | `{"status":"ok","database":"connected","service":"fernleaf-api"}` ✅ |
+| Deployed commit | `93c4991` on `main` — billing release, demo fixtures, dashboards, deployment config |
+| All four logins | admin / kitchen / dispatch / driver @ test.com with `Test@1234` verified on deployed API ✅ |
+| Permissions | Unauthenticated 401, Kitchen→Settings 403, production cookie `__Host-fernleaf_session` Secure/HttpOnly/SameSite=Lax ✅ |
+| Proxy rewrite | Vercel `/api/v1/health` → Render API health confirmed ✅ |
 
 Normal commits, pushes and production deployment are explicitly authorised. New charges need a separate decision; the hiring form must not be submitted.
 
@@ -379,14 +382,14 @@ Unfinished Should/optional work is deferred by the narrower authorised release s
 
 | Phase | Current status | Acceptance gate |
 | --- | --- | --- |
-| 0 Foundation | Local implementation verified; hosted gate blocked | Deployed login, unauthorised API rejection and production database connection |
+| 0 Foundation | **Deployed and verified** | All four logins, 401/403, production cookies, health with connected database, proxy rewrite ✅ |
 | 1 Rules/configuration | Implemented and locally verified | PASS: missing/hidden items excluded, derived rounding correct, company/owner/domain rules enforced; lint/types/tests/browser/build/container pass |
 | 2 Orders/cutoff | Implemented and locally verified | PASS: stable recorded purchases, exact repeated/concurrent confirmation and Draft cancellation, usable HTTP builder/detail/exception paths |
 | 3 Fulfilment/delivery | Implemented and locally verified | Cross-role delivery, invalid/concurrent actions, phone journey and 400-order board pass; publication tracked separately |
-| 4 Billing/dashboards/staff | Implemented; gate checks in progress | Invoice races, original totals/credits and role-summary reconciliation |
-| 5 Must release | In progress | All Must acceptance checks pass on deployed app, including access/current data/400-order board |
+| 4 Billing/dashboards/staff | Implemented and deployed | Invoice races, original totals/credits, role-summary reconciliation and staff CRUD |
+| 5 Must release | **Deployed; verification in progress** | All Must acceptance checks pass on deployed app, including access/current data/400-order board |
 | 6 Should/optional | Not started; portions then CSV | Must regression suite remains green after each complete enhancement |
-| 7 Review handoff | In progress | Deployment proof, accurate URLs, current-day data and two-week availability; form excluded by user |
+| 7 Review handoff | **In progress** | Deployment proof, accurate URLs, current-day data and two-week availability; form excluded by user |
 
 ## Interpretations and assumptions
 
@@ -501,14 +504,35 @@ Current review data adds three companies, 24 employees, 12 dishes and reusable o
 
 ## Deployment and two-week availability
 
-Production deployment is authorised and in progress. [Deployment runbook](docs/deployment.md) contains the actual provider record; [review handoff](docs/review-handoff.md) separates local verification, GitHub synchronisation and live checks. No live URL is verified yet.
+**Deployed 4 October 2026** on Vercel (web) and Render Free (API + PostgreSQL 17).
 
-Vercel supports the web and is signed in. The intended Railway account has an expired trial; no new subscription has been purchased. A prepared Render Free fallback uses `render.yaml` with PostgreSQL 17, repository-root API Docker context, additive migrations, idempotent seed and HTTPS. Its free API sleeps after 15 idle minutes and its free database expires 30 days after creation ([provider limits](https://render.com/docs/free)); an external authenticated maintenance job plus startup catch-up is prepared. Account access, quotas, expiry and actual cold-start behavior must be verified before calling the release deployed.
+| Service | URL | Provider / plan |
+| --- | --- | --- |
+| Web (Next.js) | https://fernleaf-kitchen-pied.vercel.app | Vercel Hobby, `apps/web` root |
+| API (NestJS) | https://fernleaf-kitchen-api.onrender.com | Render Free, Docker from `Dockerfile.api` |
+| Database | Internal Render PostgreSQL 17 | Render Free, Singapore region |
+| Repository | https://github.com/dishitabuilds/fernleaf-kitchen | Public, `main` branch |
 
-Keep services available **at least 14 days after actual submission** (4 October implies no earlier than 18 October at the same submission time). Record creation/expiry, quota and retention timestamps; inspect health, all-role login, current-day fixture logs and storage daily. The free fallback needs a new database with expiry beyond that window and sufficient remaining free instance-hours. No availability guarantee is claimed before provider configuration is checked. The hiring form has not been submitted.
+**Verified on 4 October 2026:**
+- Direct API health with connected database: `{"status":"ok","database":"connected","service":"fernleaf-api"}` ✅
+- Vercel proxy rewrite `/api/v1/health` reaches Render API ✅
+- All four accounts login successfully through deployed API ✅
+- Production cookie `__Host-fernleaf_session`: Secure, HttpOnly, SameSite=Lax, Path=/, no Domain ✅
+- Unauthenticated `/auth/me` returns 401 ✅
+- Kitchen user settings access returns 403 ✅
+- Login through Vercel proxy with correct session cookie ✅
+- Commit `93c4991` deployed on both services ✅
+
+**Hosting notes:**
+- Render Free API sleeps after 15 idle minutes; first request after sleep has a cold-start delay (~30-60s). Startup catch-up processes due cutoffs and appends demo fixtures.
+- Render Free database expires 30 days after creation (approximately 3 November 2026). Keep services available **at least 14 days after submission** (no earlier than 18 October).
+- `DEMO_FIXTURES_ENABLED=true` and `MAINTENANCE_TOKEN` are set. The startup scheduler and IST-midnight job append date-keyed review fixtures.
+- The `start:demo-deploy` script runs `prisma migrate deploy && prisma db seed && node dist/main.js` on every container start.
+
+[Deployment runbook](docs/deployment.md) | [Review handoff](docs/review-handoff.md) | [Demo fixtures](docs/demo-fixtures.md)
 
 ## Resume point and next phase
 
-Release continuation is authorised through deployment. Finish focused checks and publish a coherent release milestone, then verify HTTPS sessions/origin/CSRF, all four roles, kitchen?dispatch?delivery, billing/credits, jobs/current-day data and the two-week hosting window. Remaining blockers are provider access/plan and original-source availability; neither is proof of an application defect or completed deployment.
+Deployment is live at the URLs above. Remaining verification: browser login flow on all four accounts, operational Kitchen→Dispatch→Driver flow on the deployed app, billing/credits workflow, and current-day fixture confirmation. The hiring form has not been submitted.
 
 Preserved decisions: exactly one required/zero-or-one optional option; reject duplicate dish lines; ordinary saved company addresses; explicit reasoned custom-address/late Admin exceptions; immediate shared confirmation for late placement; historical company after employee transfer; packaging invalidates readiness before departure and locks afterward; reasoned Admin travelling-driver reassignment; drop-wide address/time corrections after departure. Confirmed purchases freeze; invoiced cancellation adds a full remaining internal credit, delivered shortages add reasoned partial credits, issued membership/gross and paid history stay immutable. No decision was changed to bypass a requirement.

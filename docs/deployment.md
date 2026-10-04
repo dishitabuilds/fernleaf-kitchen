@@ -98,11 +98,12 @@ After actual submission:
 
 | Item | Actual value |
 | --- | --- |
-| Hosting access | Pending user access |
-| Repository / branch | Verified public [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), `main`; historical Phase 1 commit `a44792c` and retry fix `47279c3` pushed/verified with passing CI. See README for current Phase 2 commit/push/CI status. |
-| Deployed commit | None; not deployed |
-| Web/API URLs | Not deployed |
-| Production migrations/seed | Not run |
-| Production smoke test date/results | Not run |
+| Hosting access | Vercel Hobby (web), Render Free (API + PostgreSQL 17 Singapore) |
+| Repository / branch | Verified public [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), `main` |
+| Deployed commit | `93c4991` — billing release, demo fixtures, dashboards, deployment config |
+| Web URL | https://fernleaf-kitchen-pied.vercel.app |
+| API URL | https://fernleaf-kitchen-api.onrender.com |
+| Production migrations/seed | Applied via `start:demo-deploy` (migrate deploy + seed + start) |
+| Production smoke test | 4 October 2026: health ✅, four logins ✅, 401/403 ✅, cookie attrs ✅, proxy rewrite ✅ |
 | Submission/form | Not submitted; original form unavailable |
-| Retention-until/budget | Pending actual submission/hosting |
+| Retention-until/budget | Render Free DB ~30 days (≈3 November 2026); keep until at least 18 October |
