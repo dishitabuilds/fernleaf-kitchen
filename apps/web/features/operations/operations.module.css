@@ -43,3 +43,7 @@
 .checkbox input { margin-top: 4px; }
 @media(max-width:800px) { .grid, .units { grid-template-columns: 1fr; } }
 @media(max-width:560px) { .heading h1 { font-size: 30px; } .heading :global(.phase-badge) { display: none; } .card, .unit, .stop { padding: 19px; } .values { grid-template-columns: 1fr; } .toolbar > :first-child { margin-right: 0; } .toolbar :global(.button), .stop :global(.button), .card :global(.button) { min-height: 44px; } }
+
+.photo { margin: 1rem 0 0; }
+.photo img { display: block; max-width: 100%; max-height: 420px; border-radius: 8px; border: 1px solid var(--border, #ddd); object-fit: contain; }
+.photo figcaption { font-size: 0.85rem; opacity: 0.75; margin-top: 0.25rem; }

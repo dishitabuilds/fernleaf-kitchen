@@ -9,7 +9,7 @@ export type TimingRisk = 'ON_TRACK' | 'AT_RISK' | 'LATE' | 'MISSING_PLAN' | 'COM
 export interface OperationalActionRequest { version: number; actionId: string }
 export interface ForceCompleteRequest extends OperationalActionRequest { reason: string }
 export interface AssignDriverRequest extends OperationalActionRequest { driverId: string; reason?: string }
-export interface DeliverDropRequest extends OperationalActionRequest { note?: string }
+export interface DeliverDropRequest extends OperationalActionRequest { note?: string; /** Optional `data:image/jpeg|png|webp;base64,...` URL, at most 2 MB decoded. */ photoDataUrl?: string }
 export interface CorrectDropRequest extends OperationalActionRequest {
   reason: string; address?: CustomDeliveryAddress; deliveryDate?: string; deliveryTime?: string;
 }
@@ -44,7 +44,7 @@ export interface DropEventResponse {
 }
 export interface DeliveryDropResponse extends OperationalDropSummary {
   companyId: string; companyName: string; deliveryDate: string; deliveryAt: string;
-  address: DeliveryAddressSnapshot; driverInstructions: string; note: string | null;
+  address: DeliveryAddressSnapshot; driverInstructions: string; note: string | null; hasPhoto: boolean;
   plannedKitchenReadyAt: string | null; plannedDispatchReadyAt: string | null;
   kitchenRisk: TimingRisk; dispatchRisk: TimingRisk;
   orderCount: number; quantity: number; orders: OperationalOrderResponse[];

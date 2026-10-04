@@ -21,6 +21,8 @@ export async function createApplication(config: ApiConfig = readConfig()): Promi
     response.setHeader('X-Content-Type-Options', 'nosniff');
     next();
   });
+  // Delivery photos arrive as base64 JSON (<= 2 MB decoded); keep every other body small via DTO length limits.
+  app.useBodyParser('json', { limit: '3mb' });
   app.use(cookieParser());
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new ApiErrorFilter());

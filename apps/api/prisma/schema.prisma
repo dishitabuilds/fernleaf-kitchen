@@ -581,6 +581,8 @@ model DeliveryDrop {
   targetAtDeparture  DateTime?  @db.Timestamptz(3)
   onTime             Boolean?
   note               String?    @db.VarChar(2000)
+  photo              Bytes?
+  photoMimeType      String?    @db.VarChar(50)
   createdAt          DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime   @updatedAt @db.Timestamptz(3)
   orders             Order[]

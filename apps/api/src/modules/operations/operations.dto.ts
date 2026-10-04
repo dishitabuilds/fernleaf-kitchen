@@ -18,6 +18,7 @@ export class AssignDriverDto extends OperationalActionDto {
 }
 export class DeliverDropDto extends OperationalActionDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
+  @IsOptional() @IsString() @MaxLength(3_000_000) photoDataUrl?: string;
 }
 export class CorrectDropDto extends ForceCompleteDto {
   @IsOptional() @IsObject() @ValidateNested() @Type(() => CustomAddressDto) address?: CustomAddressDto;

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { RequirePermissions } from '../../common/access.decorator';
 import type { ApiRequest } from '../../common/request';
 import { AssignDriverDto, CorrectDropDto, DeliverDropDto, DropQueryDto, OperationalActionDto } from '../operations/operations.dto';
@@ -10,6 +11,9 @@ export class DropsController {
   @Get() list(@Query() query: DropQueryDto) { return this.drops.list(query); }
   @Get('drivers') drivers() { return this.drops.drivers(); }
   @Get(':id') read(@Param('id', ParseUUIDPipe) id: string) { return this.drops.read(id); }
+  @Get(':id/photo') async photo(@Param('id', ParseUUIDPipe) id: string, @Res() response: Response) {
+    const photo = await this.drops.photo(id); response.type(photo.mimeType).send(photo.bytes);
+  }
   @Post(':id/assign') @HttpCode(200) @RequirePermissions('dispatch.assign')
   assign(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AssignDriverDto, @Req() request: ApiRequest) { return this.drops.assign(id, dto, request.auth!.response.user); }
   @Post(':id/dispatch-ready') @HttpCode(200) @RequirePermissions('dispatch.depart')

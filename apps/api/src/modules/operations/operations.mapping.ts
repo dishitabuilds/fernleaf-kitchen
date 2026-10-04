@@ -21,7 +21,7 @@ export const operationalOrderSelect = {
 export const dropSelect = {
   id: true, version: true, companyId: true, company: { select: { name: true } }, deliveryDate: true, deliveryAt: true,
   addressSnapshot: true, driverInstructions: true, driver: { select: { id: true, displayName: true } }, status: true,
-  kitchenReadyAt: true, dispatchReadyAt: true, departedAt: true, deliveredAt: true, targetAtDeparture: true, onTime: true, note: true,
+  kitchenReadyAt: true, dispatchReadyAt: true, departedAt: true, deliveredAt: true, targetAtDeparture: true, onTime: true, note: true, photoMimeType: true,
   orders: { where: { status: { in: ['CONFIRMED', 'DELIVERED'] } }, orderBy: { number: 'asc' }, select: operationalOrderSelect },
   events: { orderBy: [{ createdAt: 'asc' }, { sequence: 'asc' }] },
 } satisfies Prisma.DeliveryDropSelect;
@@ -68,7 +68,7 @@ export function dropResponse(drop: DropRecord, now: Date, threshold: number): De
     address: drop.addressSnapshot as unknown as DeliveryDropResponse['address'], driverInstructions: drop.driverInstructions,
     driver: drop.driver ? { id: drop.driver.id, name: drop.driver.displayName } : null,
     kitchenReadyAt: instant(drop.kitchenReadyAt), dispatchReadyAt: instant(drop.dispatchReadyAt), departedAt: instant(drop.departedAt),
-    deliveredAt: instant(drop.deliveredAt), targetAtDeparture: instant(drop.targetAtDeparture), onTime: drop.onTime, note: drop.note,
+    deliveredAt: instant(drop.deliveredAt), targetAtDeparture: instant(drop.targetAtDeparture), onTime: drop.onTime, note: drop.note, hasPhoto: drop.photoMimeType !== null,
     plannedKitchenReadyAt: instant(plannedKitchen), plannedDispatchReadyAt: instant(plannedDispatch),
     kitchenRisk: timingRisk(now, plannedKitchen, kitchenComplete, threshold),
     dispatchRisk: timingRisk(now, plannedDispatch, ['DISPATCH_READY', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(drop.status), threshold),

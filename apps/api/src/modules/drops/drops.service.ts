@@ -3,6 +3,7 @@ import type { CompanyPurchaseSnapshot, DeliveryDropPage, DeliveryDropResponse, D
 import { ApiError } from '../../common/api-error';
 import { Clock } from '../../common/clock';
 import { PrismaService } from '../../database/prisma.service';
+import { parseDeliveryPhoto } from '../../domain/photo';
 import { assertCalendarDate, assertLocalTime, isDeliveryDateAllowed, kitchenDate } from '../../domain/calendar';
 import type { Prisma } from '../../generated/prisma/client';
 import { CutoffsService } from '../cutoffs/cutoffs.service';
@@ -81,22 +82,31 @@ export class DropsService {
   }
   deliver(id: string, dto: DeliverDropDto, actor: StaffIdentity, own = false): Promise<DeliveryDropResponse> {
     if (own ? actor.role !== 'DRIVER' : actor.role !== 'ADMIN') throw new ApiError(403, 'FORBIDDEN', 'This account cannot mark this drop delivered.');
+    const photo = dto.photoDataUrl ? parseDeliveryPhoto(dto.photoDataUrl) : null;
     const scope = own ? async (tx: Prisma.TransactionClient) => { await this.record(tx, id, actor); } : undefined;
     return this.actions.run(actor, dto.actionId, { operation: 'DROP_DELIVER', id, body: dto }, async (tx) => {
       const drop = await this.record(tx, id, own ? actor : undefined); this.version(drop.version, dto.version);
       if (drop.status !== 'OUT_FOR_DELIVERY' || !drop.departedAt || !drop.targetAtDeparture) throw new ApiError(409, 'DROP_NOT_OUT_FOR_DELIVERY', 'Only a departed drop can be delivered.');
       if (!drop.orders.length || drop.orders.some((order) => order.status !== 'CONFIRMED')) throw new ApiError(409, 'DROP_EMPTY', 'This drop has no eligible active orders to deliver.');
       const now = this.clock.now(), onTime = now.getTime() <= drop.targetAtDeparture.getTime();
-      await this.change(tx, drop, { status: 'DELIVERED', deliveredAt: now, onTime, note: dto.note ?? null });
+      await this.change(tx, drop, { status: 'DELIVERED', deliveredAt: now, onTime, note: dto.note ?? null,
+        photo: photo ? new Uint8Array(photo.bytes) : null, photoMimeType: photo?.mimeType ?? null });
       for (const order of drop.orders) {
         const changed = await tx.order.updateMany({ where: { id: order.id, dropId: id, status: 'CONFIRMED', version: order.version },
           data: { status: 'DELIVERED', deliveredAt: now, version: { increment: 1 } } });
         if (!changed.count) throw new ApiError(409, 'STALE_VERSION', 'A drop member changed. Refresh before delivering.');
       }
       await this.events(tx, drop, actor, dto.actionId, 'DELIVERED', null,
-        { deliveredAt: now.toISOString(), targetAtDeparture: drop.targetAtDeparture.toISOString(), onTime, note: dto.note ?? null });
+        { deliveredAt: now.toISOString(), targetAtDeparture: drop.targetAtDeparture.toISOString(), onTime, note: dto.note ?? null, hasPhoto: photo !== null, photoBytes: photo?.bytes.length ?? 0 });
       return this.readInTransaction(tx, id, own ? actor : undefined);
     }, scope);
+  }
+  /** Photo bytes for a delivered drop; driver reads are limited to their own drops for today. */
+  async photo(id: string, driver?: StaffIdentity): Promise<{ bytes: Buffer; mimeType: string }> {
+    await this.record(this.prisma, id, driver);
+    const row = await this.prisma.deliveryDrop.findUnique({ where: { id }, select: { photo: true, photoMimeType: true } });
+    if (!row?.photo || !row.photoMimeType) throw new ApiError(404, 'PHOTO_NOT_FOUND', 'No delivery photo was recorded for this drop.');
+    return { bytes: Buffer.from(row.photo), mimeType: row.photoMimeType };
   }
   correct(id: string, dto: CorrectDropDto, actor: StaffIdentity): Promise<DeliveryDropResponse> {
     if (actor.role !== 'ADMIN') throw new ApiError(403, 'FORBIDDEN', 'Only Admin may correct a travelling drop.');
@@ -156,7 +166,7 @@ export class DropsService {
   private async readInTransaction(tx: Prisma.TransactionClient, id: string, driver?: StaffIdentity) {
     return dropResponse(await this.record(tx, id, driver), this.clock.now(), await this.threshold(tx));
   }
-  private async record(tx: Prisma.TransactionClient, id: string, driver?: StaffIdentity): Promise<DropRecord> {
+  private async record(tx: Prisma.TransactionClient | PrismaService, id: string, driver?: StaffIdentity): Promise<DropRecord> {
     const record = await tx.deliveryDrop.findFirst({ where: { id, ...(driver ? { driverId: driver.id, deliveryDate: kitchenDate(this.clock.now()),
       orders: { some: { status: { in: ['CONFIRMED', 'DELIVERED'] } } } } : {}) }, select: dropSelect });
     if (!record) throw new ApiError(404, 'DROP_NOT_FOUND', 'This drop is not available to your account.');

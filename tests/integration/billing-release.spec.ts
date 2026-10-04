@@ -59,6 +59,26 @@ describe('Must release billing, dashboards and staff on isolated PostgreSQL', ()
     return (await get(`/orders/${order.id}`).expect(200)).body as OrderDetail;
   }
 
+  it('stores an optional validated delivery photo and serves it only to permitted readers', async () => {
+    const order = await confirmed();
+    await post(`/kitchen/orders/${order.id}/force-complete`, action(order, { reason: 'Isolated prepared fixture' })).expect(200);
+    const ready = (await get(`/drops/${order.dropId}`, dispatch).expect(200)).body as DeliveryDropResponse;
+    const packed = (await post(`/drops/${ready.id}/dispatch-ready`, action(ready), dispatch).expect(200)).body as DeliveryDropResponse;
+    const departed = (await post(`/drops/${ready.id}/depart`, action(packed), dispatch).expect(200)).body as DeliveryDropResponse;
+    expect(departed.hasPhoto).toBe(false);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    await post(`/driver/drops/${ready.id}/deliver`, action(departed, { photoDataUrl: 'data:image/svg+xml;base64,PHN2Zy8+' }), driver).expect(400);
+    await post(`/driver/drops/${ready.id}/deliver`, action(departed, { photoDataUrl: `data:image/jpeg;base64,${png.toString('base64')}` }), driver).expect(400);
+    const done = (await post(`/driver/drops/${ready.id}/deliver`, action(departed, { note: 'Left at reception', photoDataUrl: `data:image/png;base64,${png.toString('base64')}` }), driver).expect(200)).body as DeliveryDropResponse;
+    expect(done).toMatchObject({ status: 'DELIVERED', hasPhoto: true, note: 'Left at reception' });
+    expect(JSON.stringify(done)).not.toContain(png.toString('base64'));
+    const served = await get(`/driver/drops/${ready.id}/photo`, driver).buffer(true).expect(200).expect('Content-Type', /image\/png/);
+    expect(Buffer.compare(served.body as Buffer, png)).toBe(0);
+    await get(`/drops/${ready.id}/photo`, dispatch).expect(200);
+    await get(`/drops/${ready.id}/photo`, kitchen).expect(403);
+    await get(`/driver/drops/${ready.id}/photo`, admin).expect(404);
+  });
+
   it('enforces billing/staff Admin-only access and role-scoped financial redaction', async () => {
     await request(app.getHttpServer()).get('/api/v1/billing/invoices').expect(401);
     for (const identity of [kitchen, dispatch, driver]) {
