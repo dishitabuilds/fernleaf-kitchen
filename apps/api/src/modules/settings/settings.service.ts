@@ -15,7 +15,7 @@ export class SettingsService {
   async read(): Promise<SettingsResponse> {
     const settings = await this.prisma.kitchenSettings.findUnique({ where: { id: 1 } });
     if (!settings) throw new ApiError(503, 'SETTINGS_NOT_INITIALIZED', 'Run the database seed to initialize kitchen settings.');
-    return { ...settings, timezone: 'Asia/Kolkata', currency: 'USD', phase: 3 };
+    return { ...settings, timezone: 'Asia/Kolkata', currency: 'USD', phase: 4 };
   }
 
   async update(dto: SettingsUpdateDto, actor?: StaffIdentity): Promise<SettingsResponse> {

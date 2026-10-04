@@ -33,7 +33,7 @@ export function summary(record: Order & { lines: { quantity: number }[] }): Orde
     id: record.id, number: record.number, status: record.status, version: record.version,
     employeeId: record.employeeId, companyId: record.companyId, employeeName: record.employeeName, companyName: record.companyName,
     deliveryDate: record.deliveryDate, deliveryAt: record.deliveryAt.toISOString(), cutoffAt: record.cutoffAt.toISOString(),
-    totalMinor: record.totalMinor, quantity: record.lines.reduce((total, line) => total + line.quantity, 0), invoiced: false,
+    totalMinor: record.totalMinor, quantity: record.lines.reduce((total, line) => total + line.quantity, 0), invoiced: record.invoiceId !== null,
     createdAt: record.createdAt.toISOString(), placedAt: record.placedAt?.toISOString() ?? null,
     confirmedAt: record.confirmedAt?.toISOString() ?? null, cancelledAt: record.cancelledAt?.toISOString() ?? null,
     rejectedAt: record.rejectedAt?.toISOString() ?? null,

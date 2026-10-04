@@ -4,7 +4,7 @@ export interface ReferenceValueResponse { id: string; kind: ReferenceKind; name:
 export interface PageResponse<T> { items: T[]; total: number; page: number; pageSize: number }
 export interface CalendarConfiguration { workingDays: number[]; holidays: string[] }
 export interface SettingsResponse extends CalendarConfiguration {
-  id: number; timezone: 'Asia/Kolkata'; currency: 'USD'; phase: 3; version: number;
+  id: number; timezone: 'Asia/Kolkata'; currency: 'USD'; phase: 4; version: number;
   defaultPriceTierId: string; cutoffTime: string; cutoffWorkingDays: number; riskThresholdMinutes: number;
 }
 export interface SettingsUpdateRequest extends CalendarConfiguration {

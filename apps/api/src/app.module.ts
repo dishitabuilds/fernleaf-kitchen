@@ -33,21 +33,28 @@ import { DropsController } from './modules/drops/drops.controller';
 import { DropsService } from './modules/drops/drops.service';
 import { DriverController } from './modules/driver/driver.controller';
 import { OperationsAction } from './modules/operations/operations.action';
+import { BillingController } from './modules/billing/billing.controller';
+import { BillingService } from './modules/billing/billing.service';
+import { StaffController } from './modules/staff/staff.controller';
+import { StaffService } from './modules/staff/staff.service';
+import { DashboardController } from './modules/dashboard/dashboard.controller';
+import { DashboardService } from './modules/dashboard/dashboard.service';
 
 @Module({})
 export class AppModule {
   static register(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController],
+      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController, BillingController, StaffController, DashboardController],
       providers: [
         { provide: API_CONFIG, useValue: config },
         { provide: ORDER_QUOTE_POLICY, useValue: {
           maximumSelectionsPerGroup: 1, ordinaryCustomAddresses: false, rejectDuplicateDishLines: true,
         } satisfies QuotePolicy },
-        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService, OperationsAction, KitchenService, DropsService,
+        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService, OperationsAction, KitchenService, DropsService, BillingService, StaffService, DashboardService,
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
     };
   }
 }
+

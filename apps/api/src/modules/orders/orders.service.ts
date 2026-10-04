@@ -29,9 +29,11 @@ export class OrdersService {
     if (query.from && query.to && query.from > query.to) {
       throw new ApiError(400, 'DATE_RANGE_INVALID', 'The start of the delivery range must precede its end.');
     }
-    // Invoice membership is added in Phase 4. Phase 2 has no invoiced records.
-    if (query.invoiced === 'true') return { items: [], total: 0, page: query.page, pageSize: query.pageSize };
+    // Invoice filter uses the real invoiceId column added in Phase 4.
+    const invoiceFilter: Prisma.OrderWhereInput = query.invoiced === 'true' ? { invoiceId: { not: null } }
+      : query.invoiced === 'false' ? { invoiceId: null } : {};
     const where: Prisma.OrderWhereInput = {
+      ...invoiceFilter,
       ...(query.companyId ? { companyId: query.companyId } : {}), ...(query.status ? { status: query.status } : {}),
       ...(query.from || query.to ? { deliveryDate: { gte: query.from, lte: query.to } } : {}),
       ...(query.q ? { OR: [

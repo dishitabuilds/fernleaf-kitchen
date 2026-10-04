@@ -264,6 +264,7 @@ model Company {
   hiddenItems        CompanyHiddenMenuItem[]
   orders             Order[]
   deliveryDrops      DeliveryDrop[]
+  invoices           Invoice[]
 
   @@unique([ownerEmployeeId, id])
   @@unique([defaultAddressId, id])
@@ -431,18 +432,22 @@ model Order {
   deliveredAt            DateTime?          @db.Timestamptz(3)
   kitchenStartedAt       DateTime?          @db.Timestamptz(3)
   kitchenReadyAt         DateTime?          @db.Timestamptz(3)
+  invoiceId              String?            @unique @db.Uuid
+  invoice                Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   createdAt              DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @db.Timestamptz(3)
   lines                  OrderLine[]
   events                 OrderEvent[]
   revisions              OrderRevision[]
   actions                OrderAction[]
+  credits                BillingCredit[]
 
   @@index([deliveryDate, status, companyId])
   @@index([status, cutoffAt])
   @@index([companyId, status])
   @@index([employeeId])
   @@index([dropId])
+  @@index([invoiceId])
 }
 
 model OrderLine {
@@ -615,4 +620,36 @@ model OperationalAction {
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
 
   @@unique([actorId, key])
+}
+
+model Invoice {
+  id               String          @id @default(uuid()) @db.Uuid
+  number           Int             @unique @default(autoincrement())
+  companyId        String          @db.Uuid
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  totalMinor       Int
+  paidAmountMinor  Int             @default(0)
+  issuedAt         DateTime        @default(now()) @db.Timestamptz(3)
+  paidAt           DateTime?       @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
+  orders           Order[]
+  credits          BillingCredit[]
+
+  @@index([companyId, issuedAt])
+}
+
+model BillingCredit {
+  id          String   @id @default(uuid()) @db.Uuid
+  invoiceId   String   @db.Uuid
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  orderId     String   @db.Uuid
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  amountMinor Int
+  reason      String   @db.VarChar(2000)
+  actionKey   String   @unique @db.VarChar(160)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([invoiceId])
+  @@index([orderId])
 }
