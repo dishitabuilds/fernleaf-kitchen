@@ -1,18 +1,18 @@
-import type { CompanyPurchaseSnapshot, DeliveryPurchaseSnapshot, OrderInput } from '@fernleaf/contracts';
+import type { CompanyPurchaseSnapshot, DeliveryPurchaseSnapshot, OrderInput, StaffIdentity } from '@fernleaf/contracts';
 import { ApiError } from '../../common/api-error';
 import { assertCalendarDate, assertLocalTime, isDeliveryDateAllowed } from '../../domain/calendar';
 import type { Prisma } from '../../generated/prisma/client';
 import type { CutoffsService } from '../cutoffs/cutoffs.service';
 import { OverrideDto } from './orders.dto';
-import { addressKey, json, orderInclude } from './order.mapping';
+import { addressKey, fingerprint, json, orderInclude } from './order.mapping';
 
 type OrderRecord = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
-export async function overrideDelivery(tx: Prisma.TransactionClient, order: OrderRecord, dto: OverrideDto, cutoffs: CutoffsService) {
+export async function overrideDelivery(tx: Prisma.TransactionClient, order: OrderRecord, dto: OverrideDto, cutoffs: CutoffsService, actor: StaffIdentity) {
   if (!['DRAFT', 'PLACED', 'CONFIRMED'].includes(order.status)) throw new ApiError(409, 'ORDER_LOCKED', 'Only active, undelivered orders can have logistics changed.');
   if (order.dropId) {
     const drop = await tx.deliveryDrop.findUnique({ where: { id: order.dropId } });
-    if (drop && ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(drop.status)) throw new ApiError(409, 'DROP_ALREADY_DEPARTED', 'This order is travelling with its drop. A drop-wide correction is required; that workflow is added in Phase 3.');
+    if (drop && ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(drop.status)) throw new ApiError(409, 'DROP_ALREADY_DEPARTED', 'This order is travelling with its drop. Open the grouped drop for a reasoned correction affecting all active members.');
   }
   const before = order.deliverySnapshot as unknown as DeliveryPurchaseSnapshot;
   const capturedCompany = order.companySnapshot as unknown as CompanyPurchaseSnapshot;
@@ -46,6 +46,9 @@ export async function overrideDelivery(tx: Prisma.TransactionClient, order: Orde
   const plannedKitchenReadyAt = new Date(plannedDispatchReadyAt.getTime() - 30 * 60000);
   const delivery: DeliveryPurchaseSnapshot = { ...before, address, deliveryDate, deliveryTime, deliveryAt: deliveryAt.toISOString(),
     packaging, plannedDispatchReadyAt: plannedDispatchReadyAt.toISOString(), plannedKitchenReadyAt: plannedKitchenReadyAt.toISOString() };
+  const nextAddressKey = addressKey(delivery);
+  const groupingChanged = nextAddressKey !== order.addressKey || deliveryAt.getTime() !== order.deliveryAt.getTime();
+  const packagingChanged = fingerprint(packaging) !== fingerprint(before.packaging);
   const cutoff = await cutoffs.ensureDate(tx, deliveryDate);
   const originalInput = order.input as unknown as OrderInput;
   // Normalize the stored delivery input, removing an obsolete custom/saved
@@ -56,10 +59,11 @@ export async function overrideDelivery(tx: Prisma.TransactionClient, order: Orde
     ...(address.id ? { addressId: address.id } : { customAddress: { label: address.label, line1: address.line1, line2: address.line2,
       city: address.city, region: address.region, postalCode: address.postalCode, country: address.country } }) };
   const changed = await tx.order.updateMany({ where: { id: order.id, version: dto.version, status: order.status }, data: {
-    deliveryDate, deliveryAt, cutoffAt: cutoff.cutoffAt, addressKey: addressKey(delivery), deliverySnapshot: json(delivery),
+    deliveryDate, deliveryAt, cutoffAt: cutoff.cutoffAt, addressKey: nextAddressKey, deliverySnapshot: json(delivery),
     plannedDispatchReadyAt, plannedKitchenReadyAt, input: json(input), version: { increment: 1 },
   } });
   if (!changed.count) throw new ApiError(409, 'STALE_VERSION', 'This order changed. Reload before trying again.');
-  if (order.status === 'CONFIRMED') await cutoffs.moveConfirmedDelivery(tx, order.id, order.dropId);
+  if (order.status === 'CONFIRMED' && groupingChanged) await cutoffs.moveConfirmedDelivery(tx, order.id, order.dropId, actor, dto.reason);
+  else if (order.status === 'CONFIRMED' && packagingChanged && order.dropId) await cutoffs.refreshDropAfterMembershipChange(tx, order.dropId, actor, dto.reason);
   return { before, after: delivery };
 }

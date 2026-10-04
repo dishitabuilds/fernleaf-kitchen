@@ -126,7 +126,7 @@ describe('Phase 0 authentication and access using real PostgreSQL', () => {
   it('allows admin settings access only with valid origin and session-bound CSRF', async () => {
     const signedIn = await login();
     const settings = await request(app.getHttpServer()).get('/api/v1/settings').set('Cookie', signedIn.cookie).expect(200);
-    expect(settings.body).toMatchObject({ timezone: 'Asia/Kolkata', currency: 'USD', phase: 2, cutoffWorkingDays: 2, cutoffTime: '16:00', version: 1 });
+    expect(settings.body).toMatchObject({ timezone: 'Asia/Kolkata', currency: 'USD', phase: 3, cutoffWorkingDays: 2, cutoffTime: '16:00', version: 1 });
     const missingCsrf = await request(app.getHttpServer()).post('/api/v1/settings/check-access')
       .set('Cookie', signedIn.cookie).set('Origin', WEB_ORIGIN).expect(403);
     expect(missingCsrf.body.code).toBe('CSRF_INVALID');

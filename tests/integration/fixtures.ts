@@ -3,6 +3,7 @@ import { seedUsers } from '../../apps/api/prisma/seed-users';
 import { seedConfiguration } from '../../apps/api/prisma/seed-configuration';
 
 export async function clearConfiguration(prisma: PrismaClient): Promise<void> {
+  await prisma.operationalAction.deleteMany();
   await prisma.order.deleteMany();
   await prisma.deliveryDrop.deleteMany();
   await prisma.deliveryDateCutoff.deleteMany();

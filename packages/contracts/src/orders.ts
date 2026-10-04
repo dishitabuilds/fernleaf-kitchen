@@ -1,5 +1,6 @@
 import type { DishTemperature, PriceSource } from './catalogue';
 import type { PageResponse } from './configuration';
+import type { OperationalDropSummary } from './operations';
 
 export const ORDER_STATUSES = ['DRAFT', 'PLACED', 'CONFIRMED', 'DELIVERED', 'CANCELLED', 'REJECTED'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -85,6 +86,9 @@ export interface OrderDetail extends OrderSummary {
   events: OrderEventResponse[];
   revisions: { version: number; snapshot: OrderQuoteResponse; reason: string | null; createdAt: string }[];
   prepUnitCount: number; dropId: string | null;
+  plannedKitchenReadyAt: string; plannedDispatchReadyAt: string;
+  kitchenStartedAt: string | null; kitchenReadyAt: string | null; deliveredAt: string | null;
+  drop: OperationalDropSummary | null;
 }
 export type OrderPage = PageResponse<OrderSummary>;
 export interface CutoffProcessResult {

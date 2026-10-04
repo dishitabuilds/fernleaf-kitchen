@@ -80,7 +80,7 @@ test('Driver workspace and sign-out remain usable at phone width', async ({ page
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, 'driver@test.com');
   await expect(page.getByRole('heading', { name: 'Your delivery day', exact: true })).toBeVisible();
-  await expect(page.getByText('Planned · No operational data is shown in this foundation.', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Only your own kitchen-today stops appear/)).toBeVisible();
   const dimensions = await page.evaluate(() => ({ content: document.documentElement.scrollWidth, screen: window.innerWidth }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.screen);
   const screenshotPath = testInfo.outputPath('driver-phone.png');

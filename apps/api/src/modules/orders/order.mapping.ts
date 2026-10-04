@@ -6,6 +6,7 @@ export const orderInclude = {
   lines: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
   events: { orderBy: [{ createdAt: 'asc' }, { sequence: 'asc' }] },
   revisions: { orderBy: [{ version: 'asc' }] },
+  drop: { include: { driver: { select: { id: true, displayName: true } } } },
 } satisfies Prisma.OrderInclude;
 type OrderRecord = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
@@ -49,5 +50,20 @@ export function detail(record: OrderRecord, prepUnitCount: number): OrderDetail 
       reason: event.reason, createdAt: event.createdAt.toISOString(), details: event.details as Record<string, unknown> })),
     revisions: record.revisions.map((revision) => ({ version: revision.version, snapshot: revision.snapshot as unknown as OrderQuoteResponse,
       reason: revision.reason, createdAt: revision.createdAt.toISOString() })), prepUnitCount, dropId: record.dropId,
+    plannedKitchenReadyAt: record.plannedKitchenReadyAt.toISOString(),
+    plannedDispatchReadyAt: record.plannedDispatchReadyAt.toISOString(),
+    kitchenStartedAt: record.kitchenStartedAt?.toISOString() ?? null,
+    kitchenReadyAt: record.kitchenReadyAt?.toISOString() ?? null,
+    deliveredAt: record.deliveredAt?.toISOString() ?? null,
+    drop: record.drop ? {
+      id: record.drop.id, version: record.drop.version, status: record.drop.status,
+      driver: record.drop.driver ? { id: record.drop.driver.id, name: record.drop.driver.displayName } : null,
+      kitchenReadyAt: record.drop.kitchenReadyAt?.toISOString() ?? null,
+      dispatchReadyAt: record.drop.dispatchReadyAt?.toISOString() ?? null,
+      departedAt: record.drop.departedAt?.toISOString() ?? null,
+      deliveredAt: record.drop.deliveredAt?.toISOString() ?? null,
+      targetAtDeparture: record.drop.targetAtDeparture?.toISOString() ?? null,
+      onTime: record.drop.onTime,
+    } : null,
   };
 }

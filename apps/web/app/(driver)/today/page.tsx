@@ -1,4 +1,4 @@
-import { FoundationOverview } from '@/features/workspace/foundation-overview';
+import { DriverTodayScreen } from '@/features/operations/driver';
 import { WorkspaceShell } from '@/features/workspace/workspace-shell';
 
-export default function TodayPage() { return <WorkspaceShell allowedRoles={['DRIVER', 'ADMIN']}><FoundationOverview role="DRIVER" /></WorkspaceShell>; }
+export default function TodayPage() { return <WorkspaceShell allowedRoles={['DRIVER']}><DriverTodayScreen /></WorkspaceShell>; }

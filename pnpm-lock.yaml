@@ -169,12 +169,18 @@ importers:
       '@prisma/adapter-pg':
         specifier: 7.10.0
         version: 7.10.0
+      '@types/pg':
+        specifier: 8.15.5
+        version: 8.15.5
       '@types/supertest':
         specifier: 6.0.3
         version: 6.0.3
       dotenv:
         specifier: 17.2.3
         version: 17.2.3
+      pg:
+        specifier: 8.16.3
+        version: 8.16.3
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2

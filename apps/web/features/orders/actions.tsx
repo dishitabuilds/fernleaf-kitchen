@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import type { CompanyResponse, OrderDetail, OrderOverrideRequest, ReferenceValueResponse } from '@fernleaf/contracts';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,9 +16,10 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
   const [selected, setSelected] = useState<Action | null>(null);
   const ordinary = order.status === 'DRAFT' || order.status === 'PLACED';
   const active = ordinary || order.status === 'CONFIRMED';
+  const departed = order.drop?.status === 'OUT_FOR_DELIVERY' || order.drop?.status === 'DELIVERED';
   if (!active) return null;
   function choose(action: Action) { setSelected(action); }
-  return <Card className={styles.card}><h2>Order actions</h2>{ordinary && <><p>Ordinary changes are available before the kitchen cutoff.</p><div className={styles.toolbar}><Button variant="secondary" onClick={() => choose('cancel')}>Cancel order</Button>{order.status === 'PLACED' && <Button variant="secondary" onClick={() => choose('reject')}>Reject order</Button>}</div></>}<div className={styles.notice}><strong>Admin exceptions</strong><p>Use an explicit exception for changes beyond ordinary permissions or cutoff. The reason is recorded in the progress timeline; recorded purchase amounts stay unchanged by delivery corrections.</p><div className={styles.toolbar}><Button variant="secondary" onClick={() => choose('delivery')}>Override delivery</Button><Button variant="secondary" onClick={() => choose('admin-cancel')}>Override cancellation</Button>{order.status === 'PLACED' && <Button variant="secondary" onClick={() => choose('admin-reject')}>Override rejection</Button>}</div></div>{selected && <ActionForm key={`${selected}-${order.version}`} order={order} action={selected} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); onChanged(); }} />}</Card>;
+  return <Card className={styles.card}><h2>Order actions</h2>{ordinary && <><p>Ordinary changes are available before the kitchen cutoff.</p><div className={styles.toolbar}><Button variant="secondary" onClick={() => choose('cancel')}>Cancel order</Button>{order.status === 'PLACED' && <Button variant="secondary" onClick={() => choose('reject')}>Reject order</Button>}</div></>}<div className={styles.notice}><strong>Admin exceptions</strong><p>Use an explicit exception for changes beyond ordinary permissions or cutoff. The reason is recorded in the progress timeline; recorded purchase amounts stay unchanged by delivery corrections.</p>{departed && <p>Packaging is locked after departure. Correct the address or time for the whole travelling group from its drop details.</p>}<div className={styles.toolbar}>{departed && order.drop ? <Link className="button button-secondary" href={`/dispatch/${order.drop.id}`}>Correct grouped delivery</Link> : <Button variant="secondary" onClick={() => choose('delivery')}>Override delivery</Button>}<Button variant="secondary" onClick={() => choose('admin-cancel')}>Override cancellation</Button>{order.status === 'PLACED' && <Button variant="secondary" onClick={() => choose('admin-reject')}>Override rejection</Button>}</div></div>{selected && <ActionForm key={`${selected}-${order.version}`} order={order} action={selected} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); onChanged(); }} />}</Card>;
 }
 function ActionForm({ order, action, onClose, onChanged }: { order: OrderDetail; action: Action; onClose: () => void; onChanged: () => void }) {
   const mutation = useOrderMutation();

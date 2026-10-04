@@ -337,8 +337,34 @@ describe('Phase 2 Orders API, accepted purchases and concurrent transitions on P
     await post('/orders/quote', { ...input({ deliveryDate: '2026-10-08' }), overrideReason: 'Calendar exceptions remain prohibited' }).expect(400);
     expect((await post(`/orders/${order.id}/override`, reason(confirmed, { action: 'DELIVERY', deliveryDate: '2026-10-08' })).expect(400)).body.code).toBe('COMPANY_DATE_CLOSED');
     await prisma.deliveryDrop.update({ where: { id: confirmed.dropId! }, data: { status: 'OUT_FOR_DELIVERY', departedAt: now, targetAtDeparture: new Date(confirmed.deliveryAt) } });
+    const travelling = await read(order.id);
     expect((await post(`/orders/${order.id}/override`, reason(confirmed, { action: 'DELIVERY', deliveryTime: '15:00' })).expect(409)).body.code).toBe('DROP_ALREADY_DEPARTED');
-    expect(await read(order.id)).toEqual(confirmed);
+    expect(await read(order.id)).toEqual(travelling);
+    expect(travelling.purchase).toEqual(confirmed.purchase);
+    expect(travelling.delivery).toEqual(confirmed.delivery);
+    expect(travelling.drop).toMatchObject({ status: 'OUT_FOR_DELIVERY', targetAtDeparture: confirmed.deliveryAt });
+  });
+
+  it('keeps the dispatch check when an override leaves grouping and packaging unchanged', async () => {
+    const original = await create(); now = new Date(CUTOFF);
+    await post('/cutoffs/process', { deliveryDate: DELIVERY_DATE }).expect(200);
+    const confirmed = await read(original.id);
+    await post(`/kitchen/orders/${original.id}/force-complete`, {
+      version: confirmed.version, actionId: randomUUID(), reason: 'Complete fixture preparation',
+    }).expect(200);
+    const kitchenReady = (await get(`/drops/${confirmed.dropId}`).expect(200)).body as { version: number };
+    const dispatchReady = (await post(`/drops/${confirmed.dropId}/dispatch-ready`, {
+      version: kitchenReady.version, actionId: randomUUID(),
+    }).expect(200)).body as { version: number; dispatchReadyAt: string };
+    const current = await read(original.id);
+    const unchanged = (await post(`/orders/${current.id}/override`, reason(current, {
+      action: 'DELIVERY', addressId: current.delivery.address.id, deliveryTime: current.delivery.deliveryTime,
+      packagingId: current.delivery.packaging?.id ?? null,
+    })).expect(201)).body as OrderDetail;
+    expect(unchanged.drop).toMatchObject({ status: 'DISPATCH_READY', version: dispatchReady.version, dispatchReadyAt: dispatchReady.dispatchReadyAt });
+    expect(unchanged.purchase).toEqual(original.purchase);
+    expect(unchanged.delivery).toEqual(current.delivery);
+    expect(unchanged.kitchenReadyAt).toBe(current.kitchenReadyAt);
   });
 
   it('returns stable server filters, pages, timeline and truthful empty invoiced results', async () => {

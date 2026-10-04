@@ -12,6 +12,8 @@
     "test": "pnpm test:integration",
     "test:integration": "pnpm --filter @fernleaf/contracts build && pnpm --filter @fernleaf/api test:integration",
     "test:e2e": "playwright test",
+    "test:seed-browser": "pnpm --filter @fernleaf/api seed:browser-test",
+    "test:kitchen-load-ui": "playwright test --config playwright.workload.config.ts",
     "db:up": "docker compose up -d --wait",
     "db:generate": "pnpm --filter @fernleaf/api generate",
     "db:migrate": "pnpm --filter @fernleaf/api migrate:deploy",

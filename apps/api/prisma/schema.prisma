@@ -549,6 +549,7 @@ model PrepUnit {
   stationId     String?          @db.Uuid
   stationName   String?          @db.VarChar(254)
   status        PrepStatus       @default(PENDING)
+  version       Int              @default(1)
   startedAt     DateTime?        @db.Timestamptz(3)
   doneAt        DateTime?        @db.Timestamptz(3)
 
@@ -568,6 +569,7 @@ model DeliveryDrop {
   driver             StaffUser? @relation(fields: [driverId], references: [id], onDelete: SetNull)
   status             DropStatus @default(AWAITING_KITCHEN)
   version            Int        @default(1)
+  kitchenReadyAt     DateTime?  @db.Timestamptz(3)
   dispatchReadyAt    DateTime?  @db.Timestamptz(3)
   departedAt         DateTime?  @db.Timestamptz(3)
   deliveredAt        DateTime?  @db.Timestamptz(3)
@@ -577,9 +579,40 @@ model DeliveryDrop {
   createdAt          DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime   @updatedAt @db.Timestamptz(3)
   orders             Order[]
+  events             DropEvent[]
 
   @@unique([companyId, addressKey, deliveryAt])
   @@unique([id, companyId])
   @@index([driverId, deliveryDate, status])
   @@index([deliveryDate, status])
+}
+
+model DropEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  sequence  Int          @unique @default(autoincrement())
+  dropId    String       @db.Uuid
+  drop      DeliveryDrop @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  actionKey String       @db.VarChar(160)
+  type      String       @db.VarChar(40)
+  actorId   String?      @db.Uuid
+  actorName String       @db.VarChar(150)
+  reason    String?      @db.VarChar(2000)
+  details   Json
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@unique([dropId, actionKey])
+  @@index([dropId, createdAt])
+}
+
+// Successful operational responses are persisted in the same transaction as
+// the transition. The actor/key pair is bound to its exact target and payload.
+model OperationalAction {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String   @db.Uuid
+  key         String   @db.VarChar(100)
+  payloadHash String   @db.Char(64)
+  result      Json
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([actorId, key])
 }

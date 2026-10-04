@@ -27,19 +27,25 @@ import { CutoffsScheduler } from './modules/cutoffs/cutoffs.scheduler';
 import { OrdersController } from './modules/orders/orders.controller';
 import { ORDER_QUOTE_POLICY, OrdersService } from './modules/orders/orders.service';
 import type { QuotePolicy } from './modules/orders/order.quote';
+import { KitchenController, PrepUnitsController } from './modules/kitchen/kitchen.controller';
+import { KitchenService } from './modules/kitchen/kitchen.service';
+import { DropsController } from './modules/drops/drops.controller';
+import { DropsService } from './modules/drops/drops.service';
+import { DriverController } from './modules/driver/driver.controller';
+import { OperationsAction } from './modules/operations/operations.action';
 
 @Module({})
 export class AppModule {
   static register(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController],
+      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController],
       providers: [
         { provide: API_CONFIG, useValue: config },
         { provide: ORDER_QUOTE_POLICY, useValue: {
           maximumSelectionsPerGroup: 1, ordinaryCustomAddresses: false, rejectDuplicateDishLines: true,
         } satisfies QuotePolicy },
-        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService,
+        PrismaService, AuthService, Clock, SettingsService, ReferenceDataService, CompaniesService, EmployeesService, CatalogueService, PricingService, MenuService, CutoffsService, CutoffsScheduler, OrdersService, OperationsAction, KitchenService, DropsService,
         { provide: APP_GUARD, useClass: AccessGuard },
       ],
     };

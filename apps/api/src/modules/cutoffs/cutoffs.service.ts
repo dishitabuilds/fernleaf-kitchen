@@ -5,6 +5,7 @@ import { Clock } from '../../common/clock';
 import { serializable } from '../../common/transaction';
 import { PrismaService } from '../../database/prisma.service';
 import { assertCalendarDate, calculateCutoff, deadlinePassed } from '../../domain/calendar';
+import { refreshDropReadiness } from '../../domain/operations';
 import type { Prisma } from '../../generated/prisma/client';
 
 @Injectable()
@@ -93,7 +94,7 @@ export class CutoffsService {
       status: 'CONFIRMED', version: { increment: 1 }, confirmedAt: now,
     } });
     if (!changed.count) return false;
-    await this.attachConfirmed(tx, orderId);
+    await this.attachConfirmed(tx, orderId, actor, 'Placed order confirmed at the passed kitchen cutoff.');
     await tx.orderEvent.create({ data: {
       orderId, actionKey: `cutoff:${order.deliveryDate}:confirmed`, type: 'CONFIRMED',
       actorId: actor?.id ?? null, actorName: actor?.displayName ?? 'Automatic cutoff',
@@ -103,7 +104,7 @@ export class CutoffsService {
     return true;
   }
 
-  async attachConfirmed(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+  async attachConfirmed(tx: Prisma.TransactionClient, orderId: string, actor?: StaffIdentity, reason?: string): Promise<void> {
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { lines: { include: { combinations: true } } } });
     if (!order || order.status !== 'CONFIRMED') throw new ApiError(409, 'ORDER_NOT_CONFIRMED', 'Only confirmed orders create kitchen and delivery work.');
     if (!order.lines.length || order.lines.some((line) => !line.combinations.length)) throw new ApiError(409, 'ORDER_COMBINATIONS_MISSING', 'The confirmed order must have purchased combinations.');
@@ -126,39 +127,33 @@ export class CutoffsService {
     if (['OUT_FOR_DELIVERY', 'DELIVERED'].includes(drop.status) && drop.id !== order.dropId) throw new ApiError(409, 'DROP_ALREADY_DEPARTED', 'An order cannot join a departed or delivered drop.');
     if (drop.id !== order.dropId) {
       await tx.order.update({ where: { id: orderId }, data: { dropId: drop.id } });
-      await this.refreshDropAfterMembershipChange(tx, drop.id);
+      await this.refreshDropAfterMembershipChange(tx, drop.id, actor, reason);
     }
   }
 
-  async moveConfirmedDelivery(tx: Prisma.TransactionClient, orderId: string, previousDropId?: string | null): Promise<void> {
+  async moveConfirmedDelivery(tx: Prisma.TransactionClient, orderId: string, previousDropId?: string | null, actor?: StaffIdentity, reason?: string): Promise<void> {
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { dropId: true } });
     const oldId = previousDropId === undefined ? order?.dropId : previousDropId;
     if (oldId) {
       const old = await tx.deliveryDrop.findUnique({ where: { id: oldId } });
       if (old && ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(old.status)) throw new ApiError(409, 'DROP_ALREADY_DEPARTED', 'Address or time changes after departure require a drop-wide correction.');
     }
-    await this.attachConfirmed(tx, orderId);
+    await this.attachConfirmed(tx, orderId, actor, reason);
     const next = await tx.order.findUnique({ where: { id: orderId }, select: { dropId: true } });
-    if (oldId) await this.refreshDropAfterMembershipChange(tx, oldId);
-    if (next?.dropId && next.dropId !== oldId) await this.refreshDropAfterMembershipChange(tx, next.dropId);
+    // attachConfirmed already recomputed the new drop after joining it.
+    if (oldId && next?.dropId !== oldId) await this.refreshDropAfterMembershipChange(tx, oldId, actor, reason);
   }
 
-  async detachCancelled(tx: Prisma.TransactionClient, orderId: string, previousDropId?: string | null): Promise<void> {
+  async detachCancelled(tx: Prisma.TransactionClient, orderId: string, previousDropId?: string | null, actor?: StaffIdentity, reason?: string): Promise<void> {
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { dropId: true, status: true } });
     if (!order || !['CANCELLED', 'REJECTED'].includes(order.status)) throw new ApiError(409, 'ORDER_NOT_CANCELLED', 'Only cancelled or rejected orders can leave active fulfilment.');
     const oldId = previousDropId === undefined ? order.dropId : previousDropId;
     await tx.order.update({ where: { id: orderId }, data: { dropId: null } });
     // Keep the purchased combinations and all actual prep timestamps intact.
-    if (oldId) await this.refreshDropAfterMembershipChange(tx, oldId);
+    if (oldId) await this.refreshDropAfterMembershipChange(tx, oldId, actor, reason);
   }
 
-  async refreshDropAfterMembershipChange(tx: Prisma.TransactionClient, dropId: string): Promise<void> {
-    const drop = await tx.deliveryDrop.findUnique({ where: { id: dropId } });
-    if (!drop || ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(drop.status)) return;
-    const members = await tx.order.findMany({ where: { dropId, status: 'CONFIRMED' }, select: { kitchenReadyAt: true } });
-    const ready = members.length > 0 && members.every((order) => order.kitchenReadyAt !== null);
-    await tx.deliveryDrop.update({ where: { id: dropId }, data: {
-      status: ready ? 'KITCHEN_READY' : 'AWAITING_KITCHEN', dispatchReadyAt: null, version: { increment: 1 },
-    } });
+  async refreshDropAfterMembershipChange(tx: Prisma.TransactionClient, dropId: string, actor?: StaffIdentity, reason?: string): Promise<void> {
+    await refreshDropReadiness(tx, dropId, this.clock.now(), true, actor, reason);
   }
 }

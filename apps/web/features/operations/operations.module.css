@@ -1,0 +1,45 @@
+.heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 25px; }
+.heading h1 { font-family: var(--serif); font-weight: 400; font-size: 36px; margin-bottom: 10px; }
+.heading p { font-size: 12px; color: #66785c; line-height: 1.8; max-width: 760px; }
+.identity { display: block; color: #758267; font-size: 11px; margin-top: 9px; overflow-wrap: anywhere; }
+.card { padding: 24px; margin: 21px 0; min-width: 0; }
+.card h2 { font-family: var(--serif); font-size: 25px; font-weight: 400; margin-bottom: 14px; }
+.card h3 { font-size: 14px; margin: 0 0 9px; }
+.card p { font-size: 12px; color: #5d7351; line-height: 1.8; }
+.toolbar { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; margin: 19px 0; }
+.toolbar > :first-child { margin-right: auto; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.units { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; margin: 21px 0; }
+.unit { padding: 22px; border: 1px solid var(--border); border-radius: 9px; background: #fff; min-width: 0; }
+.unit h3 { font-size: 16px; margin-bottom: 8px; font-weight: 600; overflow-wrap: anywhere; }
+.unit p { font-size: 12px; line-height: 1.8; color: #627656; }
+.topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 13px; }
+.pills { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.risk { display: inline-block; border-radius: 16px; padding: 5px 9px; color: #4d6b3b; background: #eff4e9; font-size: 10px; }
+.late { color: #954c2c; background: #fbece4; }
+.atRisk { color: #86631d; background: #faf0d5; }
+.values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 24px; margin: 17px 0; }
+.values dt { color: #75856a; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 5px; }
+.values dd { margin: 0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.choices { margin: 12px 0; padding-left: 20px; color: #567046; font-size: 12px; }
+.choices li { padding: 4px 0; line-height: 1.7; overflow-wrap: anywhere; }
+.notice { background: #f2f6eb; border: 1px solid var(--border); padding: 17px 20px; border-radius: 8px; font-size: 12px; line-height: 1.8; margin: 18px 0; }
+.warning { background: #fcf0e5; border-color: #edcdb8; color: #82482d; }
+.empty { color: #65765a; padding: 25px; font-size: 12px; line-height: 1.8; }
+.muted { color: #738468; font-size: 11px; line-height: 1.8; }
+.address { white-space: pre-line; }
+.steps { display: flex; flex-wrap: wrap; gap: 11px; list-style: none; padding: 0; margin: 22px 0; }
+.steps li { padding: 8px 11px; border: 1px solid #dbe5d2; border-radius: 6px; font-size: 11px; color: #65775c; }
+.steps .current { background: #eff5e8; border-color: #adc49b; color: #395b2b; }
+.connection { padding: 19px 23px; margin-top: 27px; font-size: 12px; color: #526b45; }
+.connection p { color: #718066; font-size: 11px; margin-top: 7px; line-height: 1.7; }
+.dropList { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 22px; }
+.stop { padding: 22px; border: 1px solid var(--border); border-radius: 9px; background: #fff; min-width: 0; }
+.stop h2 { font-family: var(--serif); font-size: 24px; font-weight: 400; margin-bottom: 12px; overflow-wrap: anywhere; }
+.stop a { display: inline-flex; margin-top: 8px; }
+.correction { border-top: 1px solid var(--border); margin-top: 21px; padding-top: 20px; }
+.correction summary { cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 15px; }
+.checkbox { display: flex; align-items: flex-start; gap: 9px; color: #526f41; font-size: 12px; line-height: 1.8; margin: 18px 0; }
+.checkbox input { margin-top: 4px; }
+@media(max-width:800px) { .grid, .units { grid-template-columns: 1fr; } }
+@media(max-width:560px) { .heading h1 { font-size: 30px; } .heading :global(.phase-badge) { display: none; } .card, .unit, .stop { padding: 19px; } .values { grid-template-columns: 1fr; } .toolbar > :first-child { margin-right: 0; } .toolbar :global(.button), .stop :global(.button), .card :global(.button) { min-height: 44px; } }

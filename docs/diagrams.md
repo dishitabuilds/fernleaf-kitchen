@@ -1,6 +1,6 @@
 # Architecture and lifecycle diagrams
 
-Authentication, Phase 1 configuration and **Phase 2's local order/cutoff acceptance gate are verified**. The registered services and create/edit/list/detail/action UI implement the user's confirmed Option A policy. The registered backend passed all 118 tests / seven suites; all 20 production-build browser tests, lint/type-check/build and the rebuilt API image's local production-mode order/confirmation/replay smoke passed. Phase 3 preparation/dispatch/driver actions and Phase 4 billing remain planned. Hosted verification remains blocked by hosting access; the original assignment/submission sources remain absent. See [architecture details](architecture.md), [README evidence and Git status](../README.md), [Phase 2 evidence](phase-2.md) and the [blueprint](../Heizen-Implementation-Blueprint.md).
+Authentication, Phase 1 configuration and **Phase 2's local order/cutoff acceptance gate are verified**. The registered services and create/edit/list/detail/action UI implement the user's confirmed Option A policy. The registered backend passed all 118 tests / seven suites; all 20 production-build browser tests, lint/type-check/build and the rebuilt API image's local production-mode order/confirmation/replay smoke passed. Phase 3 preparation/dispatch/driver actions are **in progress**, with [their diagrams and open gate](phase-3.md) tracked separately until implementation and checks pass. Phase 4 billing remains planned. Hosted verification remains blocked by hosting access; the original assignment/submission sources remain absent. See [architecture details](architecture.md), [README evidence and Git status](../README.md), [Phase 2 evidence](phase-2.md) and the [blueprint](../Heizen-Implementation-Blueprint.md).
 
 ## Phase 0 authentication and HTTP boundary
 
@@ -144,9 +144,9 @@ flowchart TB
 
 Kitchen-settings edits recalculate only unprocessed date policies and affected Draft/Placed deadlines/versions in one transaction, adding `CUTOFF_CHANGED` events. Catch-up begins after commit. Processed dates retain their policy; company-calendar edits that close live order dates return conflicts with order links. Asia/Kolkata supplies local dates; persisted deadlines/delivery times are UTC instants. Startup, timer and manual handlers share this service; hosted scheduling has not been verified.
 
-## Commercial order states: Phase 2 implemented, Delivered remains Phase 3
+## Commercial order states: orders plus Phase 3 grouped delivery
 
-Commercial order state is separate from preparation and delivery state. Phase 2 lifecycle endpoints and the builder have passing HTTP/database/browser evidence. The Delivered transition is future Phase 3 work.
+Commercial order state is separate from preparation and delivery state. Phase 2 lifecycle endpoints and the builder have passing HTTP/database/browser evidence. Phase 3 implements Delivered through a grouped drop transition, with focused PostgreSQL evidence; its local browser/regression/policy gate passes.
 
 ```mermaid
 stateDiagram-v2
@@ -157,18 +157,14 @@ stateDiagram-v2
     Placed --> Cancelled: Before cutoff or explicit Admin exception
     Placed --> Rejected: Reason-required rejection
     Confirmed --> Cancelled: Explicit Admin cancellation before delivery
-    Confirmed --> Delivered: Future Phase 3 grouped delivery
-    note right of Delivered
-        Schema status exists
-        Delivery action is planned
-    end note
+    Confirmed --> Delivered: Atomic Phase 3 grouped delivery
 ```
 
-Ordinary Draft/Placed purchase edits and cancellation lock at the exact cutoff. Explicit Admin exceptions require reasons and optimistic versions. Pre-departure delivery corrections can regroup Confirmed orders without repricing; departure/delivery corrections need the later drop-wide operational workflow. Confirmed cancellation clears active drop membership but preserves purchased preparation rows and actual timestamps; active kitchen reads in Phase 3 must include only Confirmed parent orders. Delivered orders retain their delivery fact; later shortages/credits belong to Phase 4.
+Ordinary Draft/Placed purchase edits and cancellation lock at the exact cutoff. Explicit Admin exceptions require reasons and optimistic versions. Predeparture delivery corrections can regroup Confirmed orders without repricing; departed/delivered corrections use the reasoned drop-wide workflow. Confirmed cancellation clears active drop membership while preserving purchased preparation rows/actual history and incrementing its drop version. Active Kitchen reads include only Confirmed parents. Delivered orders retain their delivery fact; later shortages/credits belong to Phase 4.
 
-## Planned Phase 3 preparation and drop transitions
+## Phase 3 preparation and drop transitions — locally verified
 
-Pending prep units and awaiting-kitchen drops can be created by Phase 2 confirmation. The following start/done/readiness/dispatch/driver commands are not implemented by Phase 2.
+Confirmation creates Pending prep units and grouped drops. These start/done/readiness/dispatch/Driver commands are implemented and have 23 focused PostgreSQL cases passing. The local Phase 3 gate passes final regression/browser checks and both confirmed packaging/reassignment policies; [Phase 3 evidence](phase-3.md) records the precise open work.
 
 ```mermaid
 stateDiagram-v2
@@ -187,9 +183,9 @@ stateDiagram-v2
     OutForDelivery --> Delivered: Actual time and atomic member updates
 ```
 
-Phase 3 must protect repeated/concurrent commands, aggregate readiness and grouped member updates. Direct completion records a start as well as done. Pre-departure regrouping can invalidate readiness; a departed-drop correction is drop-wide. Actual history and the target captured at departure must remain intact.
+Serializable transitions and action replay protect repeated/concurrent commands, aggregate readiness and grouped member updates. Direct completion records a start as well as done. Predeparture regrouping invalidates dispatch checks; every membership change versions the drop even when its state stays unchanged. Current status is the gate, while immutable readiness events preserve before/after actual timestamps. A departed-drop correction is drop-wide and keeps the original target/outcome. The user confirmed packaging invalidation before departure/locking afterward and reasoned Admin travelling-Driver reassignment; implementation and applicable checks for those additions pass.
 
-## Data flow: implemented Phase 2 into planned operations/billing
+## Data flow: implemented orders/operations into planned billing/dashboards
 
 ```mermaid
 flowchart TB
@@ -201,9 +197,9 @@ flowchart TB
     Cutoff --> Prep[(Unique pending prep units)]
     Cutoff --> Drop[(Exact grouped drop membership)]
     Cutoff --> Billable[Confirmed original order amounts]
-    Prep -. Phase 3 .-> Kitchen[Kitchen completion and aggregate readiness]
-    Drop -. Phase 3 .-> Delivery[Dispatch and own-today driver actions]
-    Kitchen -.-> Delivery
+    Prep --> Kitchen[Kitchen completion and aggregate readiness]
+    Drop --> Delivery[Dispatch and own-today driver actions]
+    Kitchen --> Delivery
     Billable -. Phase 4 .-> Invoice[(Invoices / payments / credits)]
     Kitchen -. Phase 4 .-> Dashboard[Defined permission-scoped dashboards]
     Delivery -.-> Dashboard

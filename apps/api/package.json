@@ -8,6 +8,7 @@
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "prisma db seed",
+    "seed:browser-test": "tsx prisma/seed-browser-test.ts",
     "dev": "tsc -p tsconfig.build.json && concurrently -k -n compile,api \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch dist/main.js\"",
     "dev:compile": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "build": "tsc -p tsconfig.build.json",

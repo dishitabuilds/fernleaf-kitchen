@@ -1,6 +1,6 @@
-# Architecture: configuration, orders and cutoff processing
+# Architecture: configuration, orders and fulfilment
 
-**Phase 2 is implemented and its local acceptance gate is verified.** It adds persisted orders/history/cutoffs/preparation/drop foundations, registered order HTTP services/controllers and the create/edit/list/detail/action UI under the user's confirmed Option A policy. On 4 October 2026 lint, type-check and production builds passed; the registered backend passed 118 tests across seven suites, and all 20 production-build Chromium tests passed, including four new order journeys and two manual-cutoff cases. The rebuilt Phase 2 API image also passed a local production-mode purchase/confirmation/replay smoke. [Phase 2 evidence](phase-2.md), the [deployment record](deployment.md) and README record checks and Git synchronization separately. Phase 3/4 remain planned. Phase 0's hosted gate is blocked by pending hosting access, and the original assignment PDF/submission instructions remain absent.
+**Phase 3 fulfilment is in progress; its acceptance evidence is pending.** Preparation, dispatch and Driver HTTP screens/actions build on the Phase 2 combination snapshots and exact drop grouping. [Phase 3 evidence and diagrams](phase-3.md) track implemented behavior and open checks. Phase 2's local gate remains verified: 118 backend tests, 20 production browser cases, lint/types/build and API image/container smoke. [Phase 2 evidence](phase-2.md), the [deployment record](deployment.md) and README keep checks and Git synchronization separate. Billing/dashboards remain Phase 4. Phase 0's hosted gate is blocked by pending hosting access, and the original assignment PDF/submission instructions remain absent.
 
 The browser renders Next.js forms and calls relative `/api/v1` URLs. Next.js rewrites those requests over HTTP to NestJS. Authentication, permissions, validation, pricing, calendars and Prisma access belong to the backend. No Next.js page/server action accesses Prisma.
 
@@ -11,10 +11,14 @@ flowchart LR
     Guard --> Controllers[Validated configuration and order controllers]
     Controllers --> Services[Catalogue, menu, pricing, companies, employees, settings]
     Controllers --> Orders[Order quote and mutation services]
+    Controllers --> Prep[Kitchen preparation service]
+    Controllers --> Drops[Dispatch and own-today Driver service]
     Services --> Rules[Pure money, pricing and calendar functions]
     Orders --> Rules
     Services --> Tx[Prisma transactions]
     Orders --> Tx
+    Prep --> Tx
+    Drops --> Tx
     Trigger[Startup / minute scheduler / Admin manual cutoff] --> Cutoff[Shared cutoff confirmation service]
     Cutoff --> Tx
     Tx --> DB[(PostgreSQL)]
@@ -169,7 +173,31 @@ Purchase JSON and typed line/combination/selection rows capture server-resolved 
 
 Database uniqueness covers order number, one dish row per order, canonical combination per line, one prep unit per combination, actor/action ID, order/action-event key and order/revision version. Duplicate dish lines are rejected before writing; variants belong to that dish line's combinations. OrderAction stores a canonical payload hash and committed response: an identical actor/action retry replays its result; reusing its key for different input returns 409. Mutation response caching occurs inside the same transaction as purchase/history/confirmation effects. Mutations use expected order versions and serializable transactions with bounded retries.
 
-Each DeliveryDrop has globally unique `(companyId, canonical actual address key, exact deliveryAt)`. Address identity/label, employee and packaging do not determine grouping. Address fields normalize whitespace/case/Unicode before hashing; actual delivery timestamps include the date. The composite Order drop FK `(dropId, companyId)` references `(DeliveryDrop.id, companyId)`, structurally preventing cross-company membership. A default driver is copied only when the staff record remains active and has Driver role. Joining a departed/delivered drop is rejected. Driver departure/delivery actions are Phase 3 work.
+Each DeliveryDrop has globally unique `(companyId, canonical actual address key, exact deliveryAt)`. Address identity/label, employee and packaging do not determine grouping. Address fields normalize whitespace/case/Unicode before hashing; actual delivery timestamps include the date. The composite Order drop FK `(dropId, companyId)` references `(DeliveryDrop.id, companyId)`, structurally preventing cross-company membership. A default driver is copied only when the staff record remains active and has Driver role. Joining a departed/delivered drop is rejected. Driver departure/delivery actions are implemented and locally verified in Phase 3.
+
+## Phase 3 operational extensions — locally verified
+
+The schema adds a positive preparation-unit version for conditional actions, the drop's actual kitchen-ready time, an ordered DropEvent timeline and OperationalAction replay records. Additive migrations `20261004030000_phase_3_operations`, `20261004030500_operation_history_immutable` and `20261004031000_readiness_history_system_actor` are applied to development, the guarded integration-test and separate browser-test databases; all eight migrations are present and reviewer data/purchase snapshots were preserved. DropEvent updates are rejected through the existing immutable-history trigger function, and its actor is nullable for injected-clock automatic readiness updates. The 23-case focused PostgreSQL operational suite passes; final local browser/regression/policy gates pass in [Phase 3 evidence](phase-3.md).
+
+```mermaid
+erDiagram
+    ORDER_COMBINATION ||--o| PREP_UNIT : unique_versioned_work
+    ORDER ||--o{ ORDER_EVENT : prep_and_delivery_history
+    DELIVERY_DROP o|--o{ ORDER : active_or_delivered_members
+    DELIVERY_DROP ||--o{ DROP_EVENT : dispatch_and_correction_history
+    OPERATIONAL_ACTION {
+        uuid actorId
+        string key
+        string payloadHash
+        json result
+    }
+```
+
+OperationalAction has unique `(actorId, key)` and keeps a payload hash plus committed public response in the transition's transaction. Its actor/resource identifiers are historical scalars, not a new foreign-key claim on live users/orders. The hash binds the action to its exact operation, resource and payload. Driver replay must still pass current ownership and kitchen-date scope before returning cached data. DropEvent belongs to one drop and orders by timestamp plus unique insertion sequence; event actor name/reason preserve the business history.
+
+The current readiness gate is the drop status plus its active member orders, not simply the existence of an old actual timestamp. Every membership change increments the drop version, even if readiness/state stay the same or an order leaves after departure; a stale membership preview cannot authorize departure/correction. Readiness/membership history records before/after state and actual times plus member IDs/count, with injected-clock system events where no staff actor exists. Invalidation preserves last recorded readiness fields; renewed readiness can recalculate the current active-set aggregate while immutable events preserve older values. The user confirmed packaging invalidation before departure/locking afterward and reasoned Admin travelling-Driver reassignment; those additions are implemented and tested. Operational DTOs omit purchase amounts, costs and billing; Admin financial order details use their separate permission-protected HTTP route.
+
+**Drop-plan interpretation:** each order uses its accepted company's captured travel minutes, with dispatch plan = delivery instant minus travel and kitchen plan another 30 minutes earlier. Orders from the same company/actual address/exact delivery instant can therefore have different plans if the company's travel minutes changed between purchases. The drop view uses the earliest member kitchen/dispatch planned deadline, preventing a later purchase from hiding earlier required preparation. This minimum-deadline aggregation is our engineering interpretation, not extra wording attributed to the missing assignment PDF. Actual drop kitchen readiness is the latest readiness of its active member orders.
 
 ## Date policy and atomic confirmation
 
@@ -179,10 +207,10 @@ DeliveryDateCutoff has one row per local delivery date, UTC `cutoffAt`, settings
 
 The shared `confirmPlaced` transaction rechecks the order/date deadlines against the real clock, freezes date policy, conditionally changes an already-due Placed order to Confirmed, creates one pending prep unit per canonical purchased combination, attaches the exact grouped drop and adds the unique cutoff timeline event. Ordinary processing never recalculates purchase prices. Draft cancellation is conditional and records its reason/event. Per-order transactions isolate failures in a date scan; a failed order is reported for later retry. A reason-required **new late Admin placement**, or explicit late placement of an existing draft, uses this same helper immediately within its placement transaction after accepting the authoritative quote. The cached action response is therefore already Confirmed; any failure rolls back the purchase, confirmation and replay result together. A future delivery date before its cutoff remains Placed rather than being artificially confirmed.
 
-Explicit pre-departure delivery corrections keep company/billing/purchase amounts unchanged, recalculate planned readiness and move Confirmed membership between exact drops. Existing prep history is preserved. Confirmed cancellation clears drop membership while preserving historical preparation rows and actual timestamps; Phase 3 active-work reads must restrict parent orders to Confirmed. Company-calendar edits reject changes that would invalidate Draft/Placed/Confirmed delivery dates and return affected order links. Kitchen-board start/done/readiness transitions, dispatch progression and own-today Driver completion remain Phase 3; invoices/payments/credits remain Phase 4.
+Explicit pre-departure delivery corrections keep company/billing/purchase amounts unchanged, recalculate planned readiness and move Confirmed membership between exact drops. Existing prep history is preserved. Confirmed cancellation clears drop membership while preserving historical preparation rows and actual timestamps; Phase 3 active-work reads must restrict parent orders to Confirmed. Company-calendar edits reject changes that would invalidate Draft/Placed/Confirmed delivery dates and return affected order links. Kitchen-board start/done/readiness, dispatch and own-today Driver completion are locally verified Phase 3 behavior; invoices/payments/credits remain Phase 4.
 
 ## Implemented and locally verified HTTP/UI scope
 
 The registered order controller exposes list/detail, quote, Draft/Placed creation/update, place/cancel/reject and explicit Admin placement/delivery/cancellation/rejection exceptions. Each route declares backend capabilities; current order-management/read capabilities belong to Admin. Later operational roles receive scoped fulfilment data in Phase 3. List filters use delivery-date `from/to`, company, status, invoice membership, search and server pagination. The Phase 2 invoice model is absent, so an invoiced-only query has no matches. The independent Next.js list/detail/timeline/revision/action/manual-cutoff UI uses the HTTP rewrite, CSRF and preserved API error details. Company/calendar errors render links from `details.orders`.
 
-The builder at `/orders/new` and `/orders/:id/edit` chooses employee/company delivery defaults and menu combinations, preserves draft choices and reviews the authoritative quote before placement or a placed purchase revision. Editing inputs invalidates prior acceptance; a changed server quote must be reviewed again. Reason-required override mode makes custom-address/flag exceptions and late placement explicit. Lint/type-check/build and the complete 20-case production-build browser suite pass locally, alongside all 118 backend/rule tests and the API container smoke. README and [Phase 2 evidence](phase-2.md) record exact results, commit/push/CI and deployment status. [Sequence/activity/state diagrams](diagrams.md) distinguish these verified local order/cutoff workflows from planned fulfilment/billing work.
+The builder at `/orders/new` and `/orders/:id/edit` chooses employee/company delivery defaults and menu combinations, preserves draft choices and reviews the authoritative quote before placement or a placed purchase revision. Editing inputs invalidates prior acceptance; a changed server quote must be reviewed again. Reason-required override mode makes custom-address/flag exceptions and late placement explicit. Lint/type-check/build and the complete 20-case production-build browser suite passed the Phase 2 baseline, alongside 118 backend/rule tests and the API container smoke. README and [Phase 2 evidence](phase-2.md) record exact results, commit/push/CI and deployment status. [Sequence/activity/state diagrams](diagrams.md) now also show implemented Phase 3 operations with focused API evidence, while its local gate passes and billing is planned.

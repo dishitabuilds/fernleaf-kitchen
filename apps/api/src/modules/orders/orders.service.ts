@@ -113,7 +113,7 @@ export class OrdersService {
         const quote = await quoteInTransaction(tx, previous.input as unknown as OrderInput, { override: true, previous }, this.quotePolicy, this.menu, this.cutoffs);
         return this.placeWithQuote(tx, previous, { ...dto, acceptedQuote: dto.acceptedQuote ?? '' }, quote, actor, dto.reason);
       }
-      const change = await overrideDelivery(tx, previous, dto, this.cutoffs);
+      const change = await overrideDelivery(tx, previous, dto, this.cutoffs, actor);
       await this.event(tx, id, actor, dto.actionId, 'ADMIN_OVERRIDE_DELIVERY', dto.reason,
         { ...change, purchaseTotalMinor: previous.totalMinor, purchasedCompanyId: previous.companyId });
       // Existing purchase revisions remain immutable, including the original
@@ -201,9 +201,10 @@ export class OrdersService {
       status: target, version: { increment: 1 }, ...(target === 'CANCELLED' ? { cancelledAt: now } : { rejectedAt: now }),
     } });
     if (!changed.count) throw new ApiError(409, 'STALE_VERSION', 'This order changed. Reload before trying again.');
-    if (order.status === 'CONFIRMED') await this.cutoffs.detachCancelled(tx, order.id, order.dropId);
+    if (order.status === 'CONFIRMED') await this.cutoffs.detachCancelled(tx, order.id, order.dropId, actor, dto.reason);
     await this.event(tx, order.id, actor, dto.actionId, override ? `ADMIN_OVERRIDE_${target}` : target, dto.reason,
-      { previousStatus: order.status, purchaseTotalMinor: order.totalMinor });
+      { previousStatus: order.status, purchaseTotalMinor: order.totalMinor, previousDropId: order.dropId,
+        kitchenStartedAt: order.kitchenStartedAt?.toISOString() ?? null, kitchenReadyAt: order.kitchenReadyAt?.toISOString() ?? null });
     return this.readInTransaction(tx, order.id);
   }
 
