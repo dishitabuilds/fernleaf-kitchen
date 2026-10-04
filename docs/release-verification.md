@@ -1,5 +1,7 @@
 # Release verification — 4 October 2026
 
+> Historical initial release-takeover checks. Failures, absent-source notes and pending checks below describe that checkpoint and are preserved without upgrading their results. The original assignment PDF has since been read fully; later local Phase 6 evidence and the verified pushed/deployed application commit `7c975ea5cdba62ce9cc42c77ea548a4832ddd0b1` are recorded in [README](../README.md). Final production smoke evidence is kept separately there; the 400-order workload evidence is local.
+
 Verification begins from Antigravity commit `fbfc992` on `main`. Existing development PostgreSQL and the healthy web/API at ports 3000/3001 are preserved. The original assignment PDF is absent; requirements were checked against `rules.md`, README and the relevant blueprint acceptance sections.
 
 ## Initial checks

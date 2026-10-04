@@ -1,5 +1,7 @@
 # Fernleaf review handoff
 
+> Historical release-takeover checkpoint. The pending statuses below are preserved as evidence of what was known then and are superseded by [README](../README.md). Billing, fixtures, dashboards, staff, portions, CSV import and delivery photos are now implemented; the original assignment PDF has been read fully. Application commit `7c975ea5cdba62ce9cc42c77ea548a4832ddd0b1` is pushed on public `main`, CI is green, and Vercel/Render deployment success is verified. Current final verification is a focused production spot check, not a fresh exhaustive Must or load review. The hiring form remains unsubmitted.
+
 Takeover: 4 October 2026, clean `main` at Antigravity `fbfc992c7aa77849f82d6e220e4aef2ac789e53b`. Repository: [dishitabuilds/fernleaf-kitchen](https://github.com/dishitabuilds/fernleaf-kitchen), public verified. Final release commit/push and deployment are pending the checks below; this document does not claim a completed live release.
 
 ## What changed
