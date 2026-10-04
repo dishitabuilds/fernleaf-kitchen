@@ -40,3 +40,15 @@ export interface EmployeeCreateRequest {
 export type EmployeeUpdateRequest = Partial<Omit<EmployeeCreateRequest, 'companyId'>>;
 export interface EmployeeTransferRequest { companyId: string; replacementOwnerId?: string }
 export interface DriverChoiceResponse { id: string; displayName: string }
+
+/** Bulk employee import [Should]. Columns: name,email[,phone,can_choose_address,can_change_time,can_change_packaging,allergens,dietary_tags]. */
+export interface EmployeeImportRequest { companyId: string; csv: string; /** Validate only; nothing is written. */ dryRun?: boolean }
+export type EmployeeImportRowStatus = 'CREATED' | 'VALID' | 'ERROR';
+export interface EmployeeImportRowResult {
+  /** 1-based physical line in the file (the header is line 1). */
+  line: number; status: EmployeeImportRowStatus; name: string; email: string; employeeId: string | null; errors: string[];
+}
+export interface EmployeeImportResult {
+  companyId: string; dryRun: boolean; totalRows: number; created: number; valid: number; failed: number;
+  rows: EmployeeImportRowResult[];
+}

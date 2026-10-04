@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import type { EmployeeResponse, PageResponse } from '@fernleaf/contracts';
+import { randomUUID } from 'node:crypto';
+import type { EmployeeImportResult, EmployeeResponse, PageResponse } from '@fernleaf/contracts';
 import { ApiError } from '../../common/api-error';
 import { serializable, translateDatabaseError } from '../../common/transaction';
 import { PrismaService } from '../../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
 import { employeeResponse } from '../companies/companies.service';
-import { EmployeeCreateDto, EmployeePatchDto, ListDto, TransferDto } from '../companies/configuration.dto';
+import { EmployeeCreateDto, EmployeeImportDto, EmployeePatchDto, ListDto, TransferDto } from '../companies/configuration.dto';
+import { importSummary, planEmployeeImport } from './employee-import';
 import { rejectUnexpectedNulls, requiredString } from '../companies/configuration.validation';
 
 const employeeInclude = { allergens: true, dietaryTags: true } as const;
@@ -90,6 +92,35 @@ export class EmployeesService {
         await tx.employee.update({ where: { id }, data: { companyId: dto.companyId } });
       });
       return this.read(id);
+    } catch (error) { return translateDatabaseError(error); }
+  }
+
+  /** Bulk-create a company's employees from CSV; invalid rows are reported per line and never block valid ones. */
+  async importCsv(dto: EmployeeImportDto): Promise<EmployeeImportResult> {
+    const dryRun = dto.dryRun === true;
+    try {
+      return await serializable(this.prisma, async (tx) => {
+        if (!await tx.company.findFirst({ where: { id: dto.companyId, active: true } })) throw new ApiError(400, 'INVALID_COMPANY', 'Choose an active company.');
+        const [references, existing] = await Promise.all([
+          tx.referenceValue.findMany({ where: { kind: { in: ['ALLERGEN', 'DIETARY_TAG'] }, active: true }, select: { id: true, kind: true, name: true } }),
+          tx.employee.findMany({ where: { companyId: dto.companyId }, select: { email: true } }),
+        ]);
+        const table = (kind: string) => new Map(references.filter((entry) => entry.kind === kind).map((entry) => [entry.name.toLowerCase(), entry.id]));
+        const plan = planEmployeeImport(dto.csv, { allergens: table('ALLERGEN'), dietaryTags: table('DIETARY_TAG'),
+          existingEmails: new Set(existing.map((employee) => employee.email.toLowerCase())) });
+        if (dryRun) return importSummary(dto.companyId, true, plan.rows);
+        // Set-based inserts keep a 2,000-row file well inside one transaction; ids are assigned here so rows can report them.
+        const created = plan.candidates.map((candidate) => ({ ...candidate, id: randomUUID() }));
+        await tx.employee.createMany({ data: created.map(({ id, name, email, phone, canChooseAddress, canChangeTime, canChangePackaging }) =>
+          ({ id, companyId: dto.companyId, name, email, phone, canChooseAddress, canChangeTime, canChangePackaging })) });
+        await tx.employeeAllergen.createMany({ data: created.flatMap((entry) => entry.allergenIds.map((referenceId) => ({ employeeId: entry.id, referenceId }))) });
+        await tx.employeeDietaryTag.createMany({ data: created.flatMap((entry) => entry.dietaryTagIds.map((referenceId) => ({ employeeId: entry.id, referenceId }))) });
+        for (const entry of created) {
+          const row = plan.rows.find((candidate) => candidate.line === entry.line)!;
+          row.status = 'CREATED'; row.employeeId = entry.id;
+        }
+        return importSummary(dto.companyId, false, plan.rows);
+      }, { timeout: 30_000 });
     } catch (error) { return translateDatabaseError(error); }
   }
 

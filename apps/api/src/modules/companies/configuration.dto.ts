@@ -61,6 +61,11 @@ export class EmployeePatchDto {
 export class EmployeeCreateDto extends EmployeePatchDto {
   @IsUUID() companyId!: string;
 }
+export class EmployeeImportDto {
+  @IsUUID() companyId!: string;
+  @IsString() @MinLength(1) @MaxLength(1_000_000) csv!: string;
+  @IsOptional() @IsBoolean() dryRun?: boolean;
+}
 export class TransferDto {
   @IsUUID() companyId!: string;
   @IsOptional() @IsUUID() replacementOwnerId?: string;

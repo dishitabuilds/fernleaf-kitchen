@@ -14,10 +14,10 @@ function retryableTransactionConflict(error: unknown): boolean {
   return cause.kind === 'TransactionWriteConflict' && (cause.originalCode === '40001' || cause.originalCode === '40P01');
 }
 
-export async function serializable<T>(prisma: PrismaService, operation: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export async function serializable<T>(prisma: PrismaService, operation: (transaction: Prisma.TransactionClient) => Promise<T>, options: { timeout?: number } = {}): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, ...(options.timeout ? { timeout: options.timeout } : {}) });
     } catch (error) {
       if (!retryableTransactionConflict(error)) throw error;
       if (attempt === 2) throw new ApiError(409, 'CONCURRENT_CHANGE', 'Another change happened at the same time. Refresh and try again.');

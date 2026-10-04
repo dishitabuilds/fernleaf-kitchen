@@ -5,12 +5,13 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaPg } from '@prisma/adapter-pg';
 import request from 'supertest';
-import type { CatalogueDish, EmployeeMenuPreview, KitchenBoardResponse, OrderDetail, OrderInput, OrderQuoteResponse, SessionResponse } from '@fernleaf/contracts';
+import type { EmployeeImportResult, CatalogueDish, EmployeeMenuPreview, KitchenBoardResponse, OrderDetail, OrderInput, OrderQuoteResponse, SessionResponse } from '@fernleaf/contracts';
 import { createApplication } from '../../apps/api/src/bootstrap';
 import { Clock } from '../../apps/api/src/common/clock';
 import { PrismaClient } from '../../apps/api/src/generated/prisma/client';
 import { SEED_IDS } from '../../apps/api/prisma/seed-configuration';
 import { resetPhase1Fixture } from './fixtures';
+import { parseCsv } from '../../apps/api/src/domain/csv';
 
 loadEnvironment({ path: resolve(__dirname, '../../apps/api/.env'), quiet: true });
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -18,7 +19,7 @@ if (!databaseUrl || !decodeURIComponent(new URL(databaseUrl).pathname).endsWith(
 const ORIGIN = 'http://localhost:3000', TODAY = '2026-10-07';
 type Login = { cookie: string; csrf: string };
 
-describe('Should features: portions on isolated PostgreSQL', () => {
+describe('Should features: portions and employee CSV import on isolated PostgreSQL', () => {
   let app: NestExpressApplication, prisma: PrismaClient, admin: Login, kitchen: Login, menuItemId: string;
   const now = new Date('2026-10-07T05:00:00Z');
   beforeAll(async () => {
@@ -93,4 +94,54 @@ describe('Should features: portions on isolated PostgreSQL', () => {
     });
   });
 
+  describe('employee CSV import', () => {
+    it('parses quoted RFC 4180 fields, CRLF and a BOM', () => {
+      expect(parseCsv('\ufeffname,email\r\n"Rao, Asha","a@x.example"\r\n\r\n"Say ""hi""\nthere",b@x.example')).toEqual([
+        { line: 1, cells: ['name', 'email'] }, { line: 2, cells: ['Rao, Asha', 'a@x.example'] }, { line: 4, cells: ['Say "hi"\nthere', 'b@x.example'] }]);
+    });
+
+    it('creates valid rows and reports every invalid row by line without rejecting the file', async () => {
+      const allergen = await prisma.referenceValue.findFirstOrThrow({ where: { kind: 'ALLERGEN', active: true } });
+      const existing = await prisma.employee.findUniqueOrThrow({ where: { id: SEED_IDS.employee } });
+      const csv = [
+        'Name,Email,Phone,can_choose_address,Allergens',
+        `Meera Kapoor,MEERA@acme.example,+91 90000 00001,yes,${allergen.name.toUpperCase()}`,
+        ',missing-name@acme.example,,,',
+        'Bad Email,not-an-email,,,',
+        `Already Here,${existing.email},,,`,
+        'Flag Typo,flag@acme.example,,maybe,',
+        'Unknown Allergy,ua@acme.example,,,Moonbeans',
+        '"Shah, Dev",dev@acme.example,,0,',
+        'Dev Again,DEV@acme.example,,,',
+      ].join('\n');
+      const body = { companyId: SEED_IDS.company, csv };
+      await send('post', '/employees/import', body, kitchen).expect(403);
+      const before = await prisma.employee.count();
+      const dry = (await send('post', '/employees/import', { ...body, dryRun: true }).expect(200)).body as EmployeeImportResult;
+      expect(dry).toMatchObject({ dryRun: true, totalRows: 8, created: 0, valid: 2, failed: 6 });
+      expect(await prisma.employee.count()).toBe(before);
+      const result = (await send('post', '/employees/import', body).expect(200)).body as EmployeeImportResult;
+      expect(result).toMatchObject({ dryRun: false, totalRows: 8, created: 2, failed: 6 });
+      const byLine = Object.fromEntries(result.rows.map((row) => [row.line, row]));
+      expect(byLine[2]).toMatchObject({ status: 'CREATED', email: 'meera@acme.example' });
+      expect(byLine[3].errors).toEqual(['name is required.']);
+      expect(byLine[4].errors[0]).toMatch(/not a valid email/);
+      expect(byLine[5].errors[0]).toMatch(/already exists/);
+      expect(byLine[6].errors[0]).toMatch(/can_choose_address must be/);
+      expect(byLine[7].errors[0]).toMatch(/Unknown allergen "Moonbeans"/);
+      expect(byLine[8]).toMatchObject({ status: 'CREATED', name: 'Shah, Dev' });
+      expect(byLine[9].errors[0]).toMatch(/repeated; it first appears on line 8/);
+      const meera = await prisma.employee.findUniqueOrThrow({ where: { id: byLine[2].employeeId! }, include: { allergens: true } });
+      expect(meera).toMatchObject({ companyId: SEED_IDS.company, canChooseAddress: true, canChangeTime: false, phone: '+91 90000 00001' });
+      expect(meera.allergens.map((entry) => entry.referenceId)).toEqual([allergen.id]);
+      const again = (await send('post', '/employees/import', body).expect(200)).body as EmployeeImportResult;
+      expect(again.created).toBe(0);
+    });
+
+    it('rejects only files that cannot be read as a table', async () => {
+      for (const [csv, code] of [['email\nx@y.example', 'CSV_COLUMNS_INVALID'], ['name,email,salary\na,b@c.example,1', 'CSV_COLUMNS_INVALID'], ['name,email', 'CSV_EMPTY'], ['name,email\n"open,a@b.example', 'CSV_UNREADABLE']] as const) {
+        expect((await send('post', '/employees/import', { companyId: SEED_IDS.company, csv }).expect(400)).body.code).toBe(code);
+      }
+    });
+  });
 });
