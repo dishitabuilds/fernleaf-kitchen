@@ -195,6 +195,7 @@ Current API routes all use `/api/v1`:
 
 | Route | Access and behaviour |
 | --- | --- |
+| `GET /` | Public; service identifier and link to health (no `/api/v1` prefix) |
 | `GET /health` | Public; real PostgreSQL probe |
 | `POST /auth/login` | Public, exact `Origin` required, strict email/password DTO; sets opaque cookie and returns identity/permissions/CSRF/expiry |
 | `GET /auth/me` | Session and `session.read`; returns current identity/permissions/CSRF/expiry |

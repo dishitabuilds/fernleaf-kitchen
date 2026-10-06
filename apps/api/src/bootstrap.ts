@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -24,7 +24,9 @@ export async function createApplication(config: ApiConfig = readConfig()): Promi
   // Delivery photos arrive as base64 JSON (<= 2 MB decoded); keep every other body small via DTO length limits.
   app.useBodyParser('json', { limit: '3mb' });
   app.use(cookieParser());
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: '', method: RequestMethod.GET }],
+  });
   app.useGlobalFilters(new ApiErrorFilter());
   app.useGlobalPipes(new ValidationPipe({
     transform: true, whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true,

@@ -6,6 +6,7 @@ import { PrismaService } from './database/prisma.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { AuthService } from './modules/auth/auth.service';
 import { HealthController } from './modules/health/health.controller';
+import { RootController } from './modules/health/root.controller';
 import { SettingsController } from './modules/settings/settings.controller';
 import { SettingsService } from './modules/settings/settings.service';
 import { ReferenceDataController } from './modules/settings/reference-data.controller';
@@ -48,7 +49,7 @@ export class AppModule {
   static register(config: ApiConfig): DynamicModule {
     return {
       module: AppModule,
-      controllers: [AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController, BillingController, StaffController, DashboardController, JobsController],
+      controllers: [RootController, AuthController, HealthController, SettingsController, ReferenceDataController, CompaniesController, EmployeesController, CatalogueController, PricingController, MenuController, CutoffsController, OrdersController, KitchenController, PrepUnitsController, DropsController, DriverController, BillingController, StaffController, DashboardController, JobsController],
       providers: [
         { provide: API_CONFIG, useValue: config },
         { provide: ORDER_QUOTE_POLICY, useValue: {

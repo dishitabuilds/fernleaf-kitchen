@@ -51,6 +51,12 @@ describe('Phase 0 authentication and access using real PostgreSQL', () => {
     return { cookie, token: cookie.split('=')[1], session: response.body as SessionResponse };
   }
 
+  it('root identifies the service and health path without the API prefix', async () => {
+    const response = await request(app.getHttpServer()).get('/').expect(200);
+    expect(response.body).toEqual({ service: 'fernleaf-api', health: '/api/v1/health' });
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
   it('health makes a PostgreSQL query and has no public caching', async () => {
     const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
     expect(response.body).toEqual({ status: 'ok', database: 'connected', service: 'fernleaf-api' });
