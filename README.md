@@ -1,5 +1,12 @@
 # Fernleaf Kitchen
 
+[Live application](https://fernleaf-kitchen-pied.vercel.app) ·
+[Deployment and demo guide](#deployment-and-two-week-availability) ·
+[Local setup](#prerequisites-and-local-setup)
+
+The deployment and test results below are dated project evidence. They do not
+constitute a current uptime check or a new guarantee of hosting availability.
+
 An internal kitchen operations application for companies buying individual boxed meals for their employees. Staff enter orders, Kitchen prepares meals, Dispatch organises deliveries, and Driver completes assigned drops. Companies owe the money; employees have no login or payment flow.
 
 The mandated stack is **Next.js + NestJS + Prisma**. This repository uses TypeScript, pnpm workspaces and PostgreSQL. The frontend calls the backend over HTTP; Prisma and authoritative business rules belong to NestJS.
